@@ -1,43 +1,32 @@
 # Elasticsearch Operator
 
-This is a simple operator for running Elasticsearch in Kubernetes. It's an
-alternative to the
-[upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator)
-with more focus on operational aspects, like draining of Elasticsearch data nodes, rather than
-abstracting manifest definitions. One key feature is upgrading of
-Elasticsearch data nodes, as well has safely handling cluster upgrades while being
-highly available.
+This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining of Elasticsearch data nodes, rather than just abstracting manifest definitions.
 
-The other key feature is about auto-scaling of Elasticsearch data nodes.
-
+One key feature is upgrading of Elasticsearch data nodes, as well as safely handling cluster upgrades while being highly available. The other key feature is offering auto-scaling for Elasticsearch data nodes.
 
 ## How it works
 
-The operator works by managing custom resources called `ElasticsearchDataSets` (EDS), which
-are basically a thin wrapper around statefulsets. One EDS represents a common group of Elasticsearch data nodes. When applying an EDS manifest the operator will
-first create a corresponding statefulset. **Do not operate manually on the statefulset. The operator
-is supposed to own this resource on your behalf.**
+The operator works by managing custom resources called `ElasticsearchDataSets` (EDS). They
+are basically a thin wrapper around StatefulSets. One EDS represents a common group of Elasticsearch data nodes. When applying an EDS manifest the operator will create and manage a corresponding StatefulSet.
 
+**Do not operate manually on the StatefulSet. The operator is supposed to own this resource on your behalf.**
 
 ## Key features
 
 * It can scale in two dimensions, shards per node and number of replicas for the indices on that dataset.
-* It works within scaling dimensions known to and long-term tested by team poirot.
-* Target CPU ratio is a safe and well-known metric to avoid latency spikes caused by GC.
-* In case of emergency manual scaling is possible by disabling the auto-scaling feature.
+* It works within scaling dimensions known to and long-term tested by teams in Zalando.
+* Target CPU ratio is a safe and well-known metric to scale on in order to avoid latency spikes caused by Garbage Collection.
+* In case of emergency, manual scaling is possible by disabling the auto-scaling feature.
 
-## Known limitations 
+## Custom Resource
 
-* All indices within one group are treated as uniform. If one index has exceptionally high load compared to the rest, we might not hit enough average CPU load to scale up. Even if we did, we would scale up resources for all those indices even if only one index would have required scale-up. [[#83](https://github.com/zalando-incubator/es-operator/issues/83)]
-* Given the fact that scaling is slow compared to a stateless application, it would actually be nice to use the derivative of the CPU utilization or even machine learning to predict the upcoming load, instead of looking at averages. [[#84](https://github.com/zalando-incubator/es-operator/issues/84)]
-* Scaling is known to be rather coarse-grained, that means a scaling event will usually trigger launching or termination of multiple nodes and not just one, which reduces possible cost-savings. The granularity is defined by the number of shards allocated on the EDS.
-
-## Resource properties
+### Full Example
 
 ```
 apiVersion: zalando.org/v1
 kind: ElasticsearchDataSet
 spec:
+  replicas: 2
   scaling:
     enabled: true
     minReplicas: 1
@@ -52,11 +41,7 @@ spec:
     scaleDownCPUBoundary: 25
     scaleDownThresholdDurationSeconds: 1800
     scaleDownCooldownSeconds: 3600
-  status:
-    lastScaleUpStarted: 2018-08-28T08:12:18Z
-    lastScaleUpEnded: 2018-08-28T08:15:18Z
-    lastScaleDownStarted: 2018-08-28T09:12:18Z
-    lastScaleDownEnded: 2018-08-28T09:15:18Z
+    diskUsagePercentScaledownWatermark: 80
 ```
 
 ### Custom resource properties
@@ -64,10 +49,10 @@ spec:
 
 | Key      | Description   | Type |
 |----------|---------------|---------|
-| spec.replicas | Initial size of the statefulset. | Int |
+| spec.replicas | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size. | Int |
 | spec.scaling.enabled | Enable or disable auto-scaling. May be necessary to enforce manual scaling. | Boolean |
-| spec.scaling.minReplicas | Minimum pod replicas. Lower bound (inclusive) when scaling down.  | Int |
-| spec.scaling.maxReplicas | Maximum pod replicas. Upper bound (inclusive) when scaling up.  | Int |
+| spec.scaling.minReplicas | Minimum Pod replicas. Lower bound (inclusive) when scaling down.  | Int |
+| spec.scaling.maxReplicas | Maximum Pod replicas. Upper bound (inclusive) when scaling up.  | Int |
 | spec.scaling.minIndexReplicas | Minimum index replicas. Lower bound (inclusive) when reducing index copies. (reminder: total copies is replicas+1 in Elasticsearch) | Int |
 | spec.scaling.maxIndexReplicas | Maximum index replicas. Upper bound (inclusive) when increasing index copies.  | Int |
 | spec.scaling.minShardsPerNode | Minimum shard per node ratio. When reached, scaling up also requires adding more index replicas.  | Int |
@@ -88,7 +73,7 @@ spec:
 ## How it scales
 
 
-The operator will collect the median CPU consumption of all pods every 60 seconds. Based
+The operator will collect the median CPU consumption from all Pods of the EDS every 60 seconds. Based
 on the data it will decide if scale-up or scale-down is necessary. For this to
 happen all samples within the given period need to meet the configured scaling threshold.
 
@@ -126,35 +111,34 @@ replicas when scaling out, and removing them before scaling in again. All you ne
 ## Scale-up operation
 
 * If scale-up requires increase of replicas, disable shard-rebalancing
-* Calculate required pod count by retrieving the current indices, their shard counts and current replica vs. desired replica count counts.
+* Calculate required Pod count by retrieving the current indices, their shard counts and current replica vs. desired replica count counts.
 * Scale up by updating `spec.Replicas` and start the resource reconciliation process.
-* If scale-up requires increase of replicas, wait for the statefulset to stabilize before updating `index.number_of_replicas` on Elasticsearch.
+* If scale-up requires increase of replicas, wait for the StatefulSet to stabilize before updating `index.number_of_replicas` on Elasticsearch.
 
 ## Scale-down operation
 
-* Calculate required pod count by retrieving the current indices, their shard count and current replica vs. desired replica count count.
+* Calculate required Pod count by retrieving the current indices, their shard count and current replica vs. desired replica count count.
 * If scale-down requires decrease of replicas, update `index.number_of_replicas` on each index
 * Scale down
 
 
 ## Draining and rolling restarts
 
-The operator will poll for all managed pods and determine if any of the pods
+The operator will poll for all managed Pods and determine if any of the Pods
 needs to be drained/updated. It determines if updates are needed based on the
 following logic and priority:
 
 1. Pods already marked draining should be drained to completion and be deleted.
 2. Pods on a priority node (e.g. a node about to be terminated) should be drained.
-3. Pods not up to date with statefulset revision gets should be drained.
+3. Pods not up to date with StatefulSet revision gets should be drained.
 
-If multiple pods needs to be updated the update is done based on the above
+If multiple Pods needs to be updated the update is done based on the above
 priority where '1' is the highest.
 
 
 ## What it does not do
 
-The operator does not manage Elasticsearch master nodes. You can create them on your own, most likey using a standard deployment manifest.
-
+The operator does not manage Elasticsearch master nodes. You can create them on your own, most likey using a standard deployment or a StatefulSet manifest.
 
 ## Building
 
@@ -220,3 +204,10 @@ $ ./build/es-operator \
 This assumes that the `elasticsearch-endpoint` is exposed via a service running
 in the `default` namespace. This uses the kube-apiserver proxy functionality to
 proxy requests to the Elasticsearch cluster.
+
+## Other alternatives
+
+We are not the only ones providing an Elasticsearch operator for Kubernetes. Here are some alternatives you might want to look at.
+
+* [upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator) - offers a higher level abstraction of the custom resource definition of an Elasticsearch cluster, snapshotting support, but to our knowledge no scaling support and no draining of nodes.
+* [jetstack/navigator](https://github.com/jetstack/navigator) - operator that can handle both Cassandra and Elasticsearch clusters, but doesn't offer auto-scaling or draining of nodes.
