@@ -1,0 +1,85 @@
+package main
+
+import (
+	"github.com/cenk/backoff"
+	"testing"
+	"time"
+
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	"github.com/stretchr/testify/require"
+)
+
+func TestEDSCPUAutoscaleUP(t *testing.T) {
+	t.Parallel()
+	edsName := "cpu-autoscale-up"
+	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
+		Enabled:                            true,
+		MinReplicas:                        1,
+		MaxReplicas:                        3,
+		MinIndexReplicas:                   0,
+		MaxIndexReplicas:                   2,
+		MinShardsPerNode:                   1,
+		MaxShardsPerNode:                   1,
+		ScaleUpCPUBoundary:                 50,
+		ScaleUpThresholdDurationSeconds:    120,
+		ScaleUpCooldownSeconds:             30,
+		ScaleDownCPUBoundary:               20,
+		ScaleDownThresholdDurationSeconds:  120,
+		ScaleDownCooldownSeconds:           30,
+		DiskUsagePercentScaledownWatermark: 0,
+	})
+	edsSpec := edsSpecFactory.Create()
+	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName)
+
+	err := createEDS(edsName, edsSpec)
+	require.NoError(t, err)
+
+	esClient, err := setupESClient("http://" + edsName + ":9200")
+	require.NoError(t, err)
+	createIndex := func() error {
+		return esClient.CreateIndex(edsName, edsName, 1, 0)
+	}
+	backoffCfg := backoff.NewExponentialBackOff()
+	backoffCfg.MaxElapsedTime = 10 * time.Minute
+	err = backoff.Retry(createIndex, backoffCfg)
+	require.NoError(t, err)
+	verifyEDS(t, edsName, edsSpec, pint32(3))
+}
+
+func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
+	t.Parallel()
+	edsName := "shard-autoscale-up"
+	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
+		Enabled:                            true,
+		MinReplicas:                        1,
+		MaxReplicas:                        3,
+		MinIndexReplicas:                   0,
+		MaxIndexReplicas:                   2,
+		MinShardsPerNode:                   1,
+		MaxShardsPerNode:                   1,
+		ScaleUpCPUBoundary:                 50,
+		ScaleUpThresholdDurationSeconds:    120,
+		ScaleUpCooldownSeconds:             30,
+		ScaleDownCPUBoundary:               20,
+		ScaleDownThresholdDurationSeconds:  120,
+		ScaleDownCooldownSeconds:           30,
+		DiskUsagePercentScaledownWatermark: 0,
+	})
+	edsSpec := edsSpecFactory.Create()
+
+	err := createEDS(edsName, edsSpec)
+	require.NoError(t, err)
+
+	esClient, err := setupESClient("http://" + edsName + ":9200")
+	require.NoError(t, err)
+	createIndex := func() error {
+		return esClient.CreateIndex(edsName, edsName, 2, 0)
+	}
+	backoffCfg := backoff.NewExponentialBackOff()
+	backoffCfg.MaxElapsedTime = 10 * time.Minute
+	err = backoff.Retry(createIndex, backoffCfg)
+	require.NoError(t, err)
+	verifyEDS(t, edsName, edsSpec, pint32(2))
+}

@@ -1,0 +1,96 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: elasticsearchdatasets.zalando.org
+spec:
+  group: zalando.org
+  version: v1
+  scope: Namespaced
+  names:
+    kind: ElasticsearchDataSet
+    singular: elasticsearchdataset
+    plural: elasticsearchdatasets
+    shortNames:
+    - eds
+    categories:
+    - all
+  additionalPrinterColumns:
+  - name: Desired
+    type: integer
+    description: The desired number of replicas for the stateful set
+    JSONPath: .spec.replicas
+  - name: Current
+    type: integer
+    description: The current number of replicas for the stateful set
+    JSONPath: .status.replicas
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            scaling:
+              properties:
+                enabled:
+                  type: boolean
+                minReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                maxReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                minIndexReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                maxIndexReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                minShardsPerNode:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                maxShardsPerNode:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                scaleUpCPUBoundary:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                scaleUpThresholdDurationSeconds:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                scaleUpCooldownSeconds:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                scaleDownCPUBoundary:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                scaleDownThresholdDurationSeconds:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                scaleDownCooldownSeconds:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                diskUsagePercentScaledownWatermark:
+                  type: integer
+                  format: int32
+                  minimum: 0
+            replicas:
+              type: integer
+              format: int32
+  subresources:
+    # status enables the status subresource.
+    status: {}
+    scale:
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
+      labelSelectorPath: .status.selector
