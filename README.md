@@ -1,136 +1,222 @@
-# Project Boilerplate
+# Elasticsearch Operator
 
-This project contains a template to use when creating a new project. It comes with all the standard files which there is expected to be in an open source project on Github. 
+This is a simple operator for running Elasticsearch in Kubernetes. It's an
+alternative to the
+[upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator)
+with more focus on operational aspects, like draining of Elasticsearch data nodes, rather than
+abstracting manifest definitions. One key feature is upgrading of
+Elasticsearch data nodes, as well has safely handling cluster upgrades while being
+highly available.
 
-## How to use
-
-1. Clone this project and copy the files into your own project
-2. Go through [this checklist](../../issues/1)
-3. Start developing!
-4. Ensure you are in compliance with Zalando rules of play
-5. If in doubt, get in touch with opensource@zalando
-
-## Readme template
-
-Below you can find a complete readme template for a project (based on [work](https://gist.github.com/PurpleBooth/109311bb0361f32d87a2) by [@PurpleBooth](https://github.com/PurpleBooth)), this will help you communicate the vision and goals of the project as well as answering common questions from future contributors.
-
-The readme file is the single most important documentation of your project, so make sure you spend time on giving a great first impression to new users and provide the needed information to interested contributors.
+The other key feature is about auto-scaling of Elasticsearch data nodes.
 
 
----- 
+## How it works
 
-```
-Readme.md template below, when setup is complete, delete all content above this.
-```
-
-
-# es-operator
-
-_description_
-
-Describe what this project does. Keep this language human and friendly, so avoid internal references, acronyms and if you 
-have dependencies, provide a direct link to these.
-
-When describing features of your project, remember to explain why these are a benefit and advantage to the user:
-
-```
-This project allows you to scale X (feature) in a fast and predictable way (benefit) - meaning you will use fewer resources and can be confident in your X environment (Advantage).
-```
-
-Think about your project as a product, consider who your audience is, and how your decisions affect the number of potential users, below is a handy checklist of things to consider before open sourcing any code. 
-
-- **Avoid internal dependencies** Obviously projects that require Zalando specific infrastructure, configuration or process have very limited use to anyone outside Zalando. 
-- **Avoid narrow usecases** Does this solve a Zalando-only problem or does it have broarder application - is there things you could change to make it a more general product
-- **Have a Product vision** Do you know where you want to take this product? - then be open about it so future contributors are aware. Being opinionated is great and it helps set expectations and the direction for the project
-- **Take ownership** Are you are benevolent dictator or open to anything? - consider how you will interact with future contrbutors who expect you to be an active maintainer
-- **Safe defaults** How do people get up and running - are there alot of ceremony involved or can you provide a simple out of the box experience so it is easy for users to evaluate your project
+The operator works by managing custom resources called `ElasticsearchDataSets` (EDS), which
+are basically a thin wrapper around statefulsets. One EDS represents a common group of Elasticsearch data nodes. When applying an EDS manifest the operator will
+first create a corresponding statefulset. **Do not operate manually on the statefulset. The operator
+is supposed to own this resource on your behalf.**
 
 
-## Getting Started
+## Key features
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+* It can scale in two dimensions, shards per node and number of replicas for the indices on that dataset.
+* It works within scaling dimensions known to and long-term tested by team poirot.
+* Target CPU ratio is a safe and well-known metric to avoid latency spikes caused by GC.
+* In case of emergency manual scaling is possible by disabling the auto-scaling feature.
+
+## Known limitations 
+
+* All indices within one group are treated as uniform. If one index has exceptionally high load compared to the rest, we might not hit enough average CPU load to scale up. Even if we did, we would scale up resources for all those indices even if only one index would have required scale-up. [[#83](https://github.com/zalando-incubator/es-operator/issues/83)]
+* Given the fact that scaling is slow compared to a stateless application, it would actually be nice to use the derivative of the CPU utilization or even machine learning to predict the upcoming load, instead of looking at averages. [[#84](https://github.com/zalando-incubator/es-operator/issues/84)]
+* Scaling is known to be rather coarse-grained, that means a scaling event will usually trigger launching or termination of multiple nodes and not just one, which reduces possible cost-savings. The granularity is defined by the number of shards allocated on the EDS.
+
+## Resource properties
 
 ```
-If possible, provide a quick exemple of how to get this running with minimal effort, so anyone curious can get up and running as fast as possible 
+apiVersion: zalando.org/v1
+kind: ElasticsearchDataSet
+spec:
+  scaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 99
+    minIndexReplicas: 2
+    maxIndexReplicas: 3
+    minShardsPerNode: 2
+    maxShardsPerNode: 6
+    scaleUpCPUBoundary: 50
+    scaleUpThresholdDurationSeconds: 900
+    scaleUpCooldownSeconds: 3600
+    scaleDownCPUBoundary: 25
+    scaleDownThresholdDurationSeconds: 1800
+    scaleDownCooldownSeconds: 3600
+  status:
+    lastScaleUpStarted: 2018-08-28T08:12:18Z
+    lastScaleUpEnded: 2018-08-28T08:15:18Z
+    lastScaleDownStarted: 2018-08-28T09:12:18Z
+    lastScaleDownEnded: 2018-08-28T09:15:18Z
 ```
 
-### Prerequisites
+### Custom resource properties
 
-What things you need to install the software and how to install them
 
+| Key      | Description   | Type |
+|----------|---------------|---------|
+| spec.replicas | Initial size of the statefulset. | Int |
+| spec.scaling.enabled | Enable or disable auto-scaling. May be necessary to enforce manual scaling. | Boolean |
+| spec.scaling.minReplicas | Minimum pod replicas. Lower bound (inclusive) when scaling down.  | Int |
+| spec.scaling.maxReplicas | Maximum pod replicas. Upper bound (inclusive) when scaling up.  | Int |
+| spec.scaling.minIndexReplicas | Minimum index replicas. Lower bound (inclusive) when reducing index copies. (reminder: total copies is replicas+1 in Elasticsearch) | Int |
+| spec.scaling.maxIndexReplicas | Maximum index replicas. Upper bound (inclusive) when increasing index copies.  | Int |
+| spec.scaling.minShardsPerNode | Minimum shard per node ratio. When reached, scaling up also requires adding more index replicas.  | Int |
+| spec.scaling.maxShardsPerNode | Maximum shard per node ratio. Boundary for scaling down. | Int |
+| spec.scaling.scaleUpCPUBoundary | (Median) CPU consumption/request ratio to consistently exceed in order to trigger scale up. | Int |
+| spec.scaling.scaleUpThresholdDurationSeconds | Duration in seconds required to meet the scale-up criteria before scaling. | Int |
+| spec.scaling.scaleUpCooldownSeconds | Minimum duration in seconds between two scale up operations. | Int |
+| spec.scaling.scaleDownCPUBoundary | (Median) CPU consumption/request ratio to consistently fall below in order to trigger scale down. | Int |
+| spec.scaling.scaleDownThresholdDurationSeconds | Duration in seconds required to meet the scale-down criteria before scaling. | Int |
+| spec.scaling.scaleDownCooldownSeconds | Minimum duration in seconds between two scale-down operations. | Int |
+| spec.scaling.diskUsagePercentScaledownWatermark | If disk usage on one of the nodes exceeds this threshold, scaling down will be prevented. | Float |
+| status.lastScaleUpStarted | Timestamp of start of last scale-up activity | Timestamp |
+| status.lastScaleUpEnded | Timestamp of end of last scale-up activity | Timestamp |
+| status.lastScaleDownStarted | Timestamp of start of last scale-down activity | Timestamp |
+| status.lastScaleDownEnded | Timestamp of end of last scale-down activity | Timestamp |
+
+
+## How it scales
+
+
+The operator will collect the median CPU consumption of all pods every 60 seconds. Based
+on the data it will decide if scale-up or scale-down is necessary. For this to
+happen all samples within the given period need to meet the configured scaling threshold.
+
+The actual calculation of how many resources to allocate is based on the
+idea of managing the shard-per-node ratio inside the cluster. Scaling out decreases the
+shard-to-node ratio, increasing available resources per index, while scaling in increases
+the shard-to-node ratio. We rely on auto-rebalancing of Elasticsearch to ensure this ratio
+is equally distributed among the nodes.
+
+At a certain point it's not feasible to only add more nodes. This can be the case if
+you already reached the lower bound of one shard per node. In other cases you may want to
+increase concurrent capacity for an index. Consequently the operator is able to add index
+replicas when scaling out, and removing them before scaling in again. All you need to do is define the upper and lower bound of shards per node.
+
+## Example 1
+
+* One index with 6 shards. minReplicas = 2, maxReplicas=4, minShardsPerNode=1, maxShardsPerNode=3, targetCPU: 40%
+* initial, minimal deployment: 3 copies of index x 6 shards = 18 shards / 3-per-node => 6 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up. First by decreasing the shards-per-node ratio to 2: 18 shards / 2 per-node => 9 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by decreasing shard-per-node ratio to 1: 18 shards / 1 per node => 18 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by increasing replica count to 3: 24 shards / 1 per node => 24 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by increasing replica count to 4: 36 shards / 1 per node => 36 nodes
+* No more further scale-up (safety net to avoid cost explosion)
+* Scale-down in reverse order. So, if expected average CPU utilization would be below 40%, e.g. current=20%, expected=20%/24*36=30% => decrease replica count to 3: 24 shards / 1 per node => 24 nodes
+* etc....
+
+## Example 2
+
+* Four indices with 6 shards. minReplicas = 2, maxReplicas=3, minShardsPerNode=2, maxShardsPerNode=4, targetCPU: 40%
+* Initial, minimal deployment: 3 copies x 4 indices x 6 shards = 72 shards / 4-per-node => 18 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up. First by decreasing the shards-per-node ratio to 3: 72 shards / 3 per-node => 24 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by decreasing the shards-per-node ratio to 2: 72 shards / 2 per-node => 36 nodes
+* Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by increasing replicas. 4 copies x 4 indices x 6 shards = 96 shards / 2  per node => 48 nodes
+
+## Scale-up operation
+
+* If scale-up requires increase of replicas, disable shard-rebalancing
+* Calculate required pod count by retrieving the current indices, their shard counts and current replica vs. desired replica count counts.
+* Scale up by updating `spec.Replicas` and start the resource reconciliation process.
+* If scale-up requires increase of replicas, wait for the statefulset to stabilize before updating `index.number_of_replicas` on Elasticsearch.
+
+## Scale-down operation
+
+* Calculate required pod count by retrieving the current indices, their shard count and current replica vs. desired replica count count.
+* If scale-down requires decrease of replicas, update `index.number_of_replicas` on each index
+* Scale down
+
+
+## Draining and rolling restarts
+
+The operator will poll for all managed pods and determine if any of the pods
+needs to be drained/updated. It determines if updates are needed based on the
+following logic and priority:
+
+1. Pods already marked draining should be drained to completion and be deleted.
+2. Pods on a priority node (e.g. a node about to be terminated) should be drained.
+3. Pods not up to date with statefulset revision gets should be drained.
+
+If multiple pods needs to be updated the update is done based on the above
+priority where '1' is the highest.
+
+
+## What it does not do
+
+The operator does not manage Elasticsearch master nodes. You can create them on your own, most likey using a standard deployment manifest.
+
+
+## Building
+
+This project uses [Go modules](https://github.com/golang/go/wiki/Modules) as
+introduced in Go 1.11 therefore you need Go >=1.11 installed in order to build.
+If using Go 1.11 you also need to [activate Module
+support](https://github.com/golang/go/wiki/Modules#installing-and-activating-module-support).
+
+Assuming Go has been setup with module support it can be built simply by running:
+
+```sh
+export GO111MODULE=on # needed if the project is checked out in your $GOPATH.
+$ make
 ```
-Give examples
+
+
+## Running
+
+The `es-operator` can be run as a deployment in the cluster. See
+[deployment.yaml](/docs/deployment.yaml) for an example.
+
+By default the operator will manage all `ElasticsearchDataSets` in the cluster
+but you can limit it to a certain resources by setting the `--operator-id`
+and/or `--namespace` options.
+
+When the operator is run with `--operator-id=my-operator` it will only manage
+`ElasticseachDataSets` which has the following annotation set:
+
+```yaml
+metadata:
+  annotations:
+    es-operator.zalando.org/operator: my-operator
 ```
 
-### Installing
+Operators which doesn't run with the `--operator-id` flag will only operate on
+resources which doesn't have the annotation.
 
-A step by step series of examples that tell you have to get a development env running
+When it's run with `--namespace=my-namespace` it will only manage resources in
+the `my-namespace` namespace.
 
-Say what the step will be
+Can be deployed just by running:
 
-```
-Give the example
-```
-
-And repeat
-
-```
-until finished
+```bash
+$ kubectl apply -f docs/deployment.yaml
 ```
 
-End with an example of getting some data out of the system or using it for a little demo
+### Running locally
 
-## Running the tests
+The operator can be run locally and operate on a remote cluster making it
+simpler to iterate during development.
 
-Explain how to run the automated tests for this system
+To run it locally you need to run `kubectl proxy` in one shell, and then you
+can start the operator with the following flags:
 
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
+```bash
+$ ./build/es-operator \
+  --priority-node-selector=lifecycle-status=ready \
+  --apiserver=http://127.0.0.1:8001 \
+  --operator-id=my-operator \
+  --elasticsearch-endpoint=http://127.0.0.1:8001/api/v1/namespaces/default/services/elasticsearch:9200/proxy
 ```
 
-## Deployment
-
-Add additional notes about how to deploy this on a live system
-
-## Built With
-
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our process for submitting pull requests to us, and please ensure
-you follow the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/zalando-incubator/es-operator/tags). 
-
-## Authors
-
-* **Per Ploug** - *Adding files to reflect Zalando rules of play* - [@perploug](https://github.com/perploug)
-
-See also the list of [contributors](CONTRIBUTORS) who participated in this project.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
-
-## Acknowledgments
-
-* Thanks to [@PurpleBooth](https://github.com/PurpleBooth) for the original readme
-* Thanks to the [@zalando/Nakadi](https://github.com/zalando/nakadi) project for Contribution file
-* Thanks to [@SteveMao](https://github.com/stevemao) for [Issue templates](https://github.com/stevemao/github-issue-templates)
+This assumes that the `elasticsearch-endpoint` is exposed via a service running
+in the `default` namespace. This uses the kube-apiserver proxy functionality to
+proxy requests to the Elasticsearch cluster.

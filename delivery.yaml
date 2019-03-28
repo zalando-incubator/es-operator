@@ -1,0 +1,66 @@
+version: "2017-09-20"
+pipeline:
+- id: build
+  overlay: ci/golang
+  cache:
+    paths:
+    - /go/pkg/mod       # pkg cache for Go modules
+    - ~/.cache/go-build # Go build cache
+  type: script
+  commands:
+  - desc: test
+    cmd: |
+      make test
+  - desc: build
+    cmd: |
+      make build.docker
+  - desc: push
+    cmd: |
+      if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
+        IMAGE=pierone.stups.zalan.do/poirot/es-operator
+      else
+        IMAGE=pierone.stups.zalan.do/poirot/es-operator-test
+      fi
+      IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
+#- id: e2e-build
+#  commands:
+#  - desc: build e2e helper image
+#    cmd: |
+#      docker build deploy/e2e -t pierone.stups.zalan.do/poirot/k8s-resource-consumer:1.4
+#      docker push pierone.stups.zalan.do/poirot/k8s-resource-consumer:1.4
+- id: e2e
+  type: process
+  desc: "E2E Tests"
+  target: search-test
+  process: microservice_standard_test
+  debug_mode: true
+  when:
+    event: pull_request
+  config:
+    apply_manifests:
+      env:
+      - name: APPLICATION
+        value: es-operator
+      - name: DEPLOYMENT_PATH
+        value: deploy/e2e
+      - name: IMAGE
+        value: "pierone.stups.zalan.do/poirot/es-operator-test:#{CDP_BUILD_VERSION}"
+      - name: OPERATOR_ID
+        value: "#{CDP_BUILD_VERSION}"
+    end2end_tests:
+      metadata:
+        name: e2e
+      spec:
+        serviceAccountName: cdp
+        restartPolicy: Never
+        containers:
+          - name: e2e
+            image: "pierone.stups.zalan.do/poirot/es-operator-test-e2e:#{CDP_BUILD_VERSION}"
+            command: ["/e2e"]
+            env:
+              - name: "OPERATOR_ID"
+                value: "#{CDP_BUILD_VERSION}"
+              - name: "E2E_NAMESPACE"
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace

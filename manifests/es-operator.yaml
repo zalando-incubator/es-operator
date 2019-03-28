@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: es-operator
+  labels:
+    application: es-operator
+    version: latest
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      application: es-operator
+  template:
+    metadata:
+      labels:
+        application: es-operator
+        version: latest
+    spec:
+      serviceAccountName: cdp
+      containers:
+      - name: es-operator
+        image: {{{IMAGE}}}
+        args:
+        - --priority-node-selector=lifecycle-status=ready
+        - --operator-id={{{OPERATOR_ID}}}
+        - --interval=30s
+        - --namespace={{{NAMESPACE}}}
+        resources:
+          limits:
+            cpu: 50m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 300Mi
