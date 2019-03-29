@@ -749,9 +749,10 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 
 	currentReplicas := edsReplicas(eds)
 	eds.Spec.Replicas = &currentReplicas
+	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {
-		scalingOperation, err := getScalingOperation(eds, es.Pods, getScalingDirection(eds, es.MetricSet, o.metricsInterval), client)
+		scalingOperation, err := as.GetScalingOperation()
 		if err != nil {
 			return err
 		}
