@@ -133,7 +133,6 @@ func TestScalingDirection(t *testing.T) {
 
 	now := metav1.Now()
 	eds.Status.LastScaleUpStarted = &now
-	as = systemUnderTest(eds, esMSet, nil)
 
 	// don't scale: cool-down period.
 	require.Equal(t, NONE, as.getScalingDirection())
@@ -517,7 +516,7 @@ func TestGetManagedIndices(t *testing.T) {
 
 func systemUnderTest(eds *zv1.ElasticsearchDataSet, metricSet *zv1.ElasticsearchMetricSet, pods []v1.Pod) *AutoScaler {
 	es := &ESResource{
-		ElasticsearchDataSet: *eds,
+		ElasticsearchDataSet: eds,
 		MetricSet:            metricSet,
 		Pods:                 pods,
 	}

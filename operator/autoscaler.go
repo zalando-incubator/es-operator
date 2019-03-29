@@ -65,7 +65,7 @@ func NewAutoScaler(es *ESResource, metricsInterval time.Duration, esClient *ESCl
 			"eds":       es.ElasticsearchDataSet.Name,
 			"namespace": es.ElasticsearchDataSet.Namespace,
 		}),
-		eds:             &es.ElasticsearchDataSet,
+		eds:             es.ElasticsearchDataSet,
 		esMSet:          es.MetricSet,
 		metricsInterval: metricsInterval,
 		pods:            es.Pods,
