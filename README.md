@@ -1,8 +1,6 @@
 # Elasticsearch Operator
 
-This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining of Elasticsearch data nodes, rather than just abstracting manifest definitions.
-
-One key feature is upgrading of Elasticsearch data nodes, as well as safely handling cluster upgrades while being highly available. The other key feature is offering auto-scaling for Elasticsearch data nodes.
+This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining and offering auto-scaling capabilities for Elasticsearch data nodes, rather than just abstracting manifest definitions.
 
 ## How it works
 
