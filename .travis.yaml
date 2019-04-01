@@ -1,0 +1,18 @@
+language: go
+dist: xenial
+
+go:
+  - "1.12.x"
+
+env:
+- GO111MODULE=on
+
+before_install:
+  - go get github.com/mattn/goveralls
+  - go get github.com/lawrencewoodman/roveralls
+
+script:
+  - make test
+  - make build.docker
+  - roveralls
+  - goveralls -v -coverprofile=roveralls.coverprofile -service=travis-ci

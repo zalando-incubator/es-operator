@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	v12 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/es-operator/pkg/clientset"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"

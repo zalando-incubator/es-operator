@@ -1,6 +1,20 @@
 # Elasticsearch Operator
 
-This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining and offering auto-scaling capabilities for Elasticsearch data nodes, rather than just abstracting manifest definitions.
+[![Build Status](https://travis-ci.org/zalando-incubator/es-operator.svg?branch=master)](https://travis-ci.org/zalando-incubator/es-operator)
+[![Coverage Status](https://coveralls.io/repos/github/zalando-incubator/es-operator/badge.svg?branch=master)](https://coveralls.io/github/zalando-incubator/es-operator?branch=master)
+[![GitHub release](https://img.shields.io/github/release/zalando-incubator/es-operator.svg)](https://github.com/zalando-incubator/es-operator/releases)
+[![go-doc](https://godoc.org/github.com/zalando-incubator/es-operator?status.svg)](https://godoc.org/github.com/zalando-incubator/es-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zalando-incubator/es-operator)](https://goreportcard.com/report/github.com/zalando-incubator/es-operator)
+
+This is a simple operator for running Elasticsearch in Kubernetes. It's an
+alternative to the
+[upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator)
+with more focus on operational aspects, like draining of Elasticsearch data nodes, rather than
+abstracting manifest definitions. One key feature is upgrading of
+Elasticsearch data nodes, as well has safely handling cluster upgrades while being
+highly available.
+
+The other key feature is about auto-scaling of Elasticsearch data nodes.
 
 ## How it works
 
