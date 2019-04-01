@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

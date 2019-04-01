@@ -5,10 +5,10 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/es-operator/operator"
 	clientset "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned"
 	zv1client "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned/typed/zalando.org/v1"
-	"github.com/sirupsen/logrus"
 
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
