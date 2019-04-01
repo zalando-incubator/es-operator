@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 )
 
 func TestEDSCPUAutoscaleUP(t *testing.T) {
