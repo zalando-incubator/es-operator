@@ -421,9 +421,8 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 	return nil
 }
 
-
-func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int ) error{
-	resp ,err := resty.New().R().
+func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int) error {
+	resp, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
 		SetBody([]byte(
 			fmt.Sprintf(

@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	log "github.com/sirupsen/logrus"
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"k8s.io/api/core/v1"
 )
 

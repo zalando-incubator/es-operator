@@ -10,9 +10,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	"github.com/cenk/backoff"
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

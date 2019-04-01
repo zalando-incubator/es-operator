@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -144,7 +144,7 @@ func TestScaleUp(t *testing.T) {
 
 	// scale up
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 3, Primaries: 6, Index: "ad1"},
+		"ad1": {Replicas: 3, Primaries: 6, Index: "ad1"},
 	}
 	direction := UP
 
@@ -159,7 +159,7 @@ func TestScaleUpByAddingReplicas(t *testing.T) {
 
 	// scale up by adding replicas
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 4, Index: "ad1"},
+		"ad1": {Replicas: 1, Primaries: 4, Index: "ad1"},
 	}
 	direction := UP
 
@@ -175,7 +175,7 @@ func TestScaleDown(t *testing.T) {
 
 	// scale down
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 6, Index: "ad1"},
+		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
 	}
 	direction := DOWN
 
@@ -191,8 +191,8 @@ func TestCannotScaleDownAnymore(t *testing.T) {
 	// cannot scale down anymore
 	eds.Spec.Replicas = &desiredReplicas
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 6, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 1, Primaries: 6, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 6, Index: "ad2"},
 	}
 	direction := DOWN
 
@@ -207,8 +207,8 @@ func TestIncreaseShardToNodeRatioMore(t *testing.T) {
 
 	// scale-down even if this means increasing shard-to-node ratio of more than +1
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 0, Primaries: 21, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 0, Primaries: 2, Index: "ad2"},
+		"ad1": {Replicas: 0, Primaries: 21, Index: "ad1"},
+		"ad2": {Replicas: 0, Primaries: 2, Index: "ad2"},
 	}
 	newDesired := int32(3)
 	eds.Spec.Replicas = &newDesired
@@ -227,7 +227,7 @@ func TestScaleDownByRemovingIndexReplica(t *testing.T) {
 	// scale down by removing an index replica
 	eds.Spec.Replicas = &desiredReplicas
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 2, Primaries: 4, Index: "ad1"},
+		"ad1": {Replicas: 2, Primaries: 4, Index: "ad1"},
 	}
 	direction := DOWN
 
@@ -244,7 +244,7 @@ func TestAtMaxIndexReplicas(t *testing.T) {
 	// cannot scale up further (already at maxIndexReplicas)
 	eds.Spec.Replicas = &desiredReplicas
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 3, Primaries: 2, Index: "ad1"},
+		"ad1": {Replicas: 3, Primaries: 2, Index: "ad1"},
 	}
 	direction := UP
 
@@ -263,7 +263,7 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 	eds.Spec.Replicas = &desiredReplicas
 	eds.Spec.Scaling.MaxShardsPerNode = 6
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 5, Primaries: 10, Index: "ad1"},
+		"ad1": {Replicas: 5, Primaries: 10, Index: "ad1"},
 	}
 	// scaling independent of desired scaling direction
 	direction := DOWN
@@ -282,8 +282,8 @@ func TestAtMaxShardsPerNode(t *testing.T) {
 	eds.Spec.Replicas = &desiredReplicas
 	eds.Spec.Scaling.MaxShardsPerNode = 6
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 9, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 0, Primaries: 5, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 9, Index: "ad1"},
+		"ad2": {Replicas: 0, Primaries: 5, Index: "ad2"},
 	}
 	direction := DOWN
 
@@ -303,8 +303,8 @@ func TestAtMinIndexReplicas(t *testing.T) {
 	eds.Spec.Scaling.MinIndexReplicas = 3
 
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 3, Primaries: 1, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 3, Primaries: 1, Index: "ad2"},
+		"ad1": {Replicas: 3, Primaries: 1, Index: "ad1"},
+		"ad2": {Replicas: 3, Primaries: 1, Index: "ad2"},
 	}
 	direction := DOWN
 
@@ -343,8 +343,8 @@ func TestAtMinReplicas(t *testing.T) {
 	eds.Spec.Scaling.MinReplicas = 4
 
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 1, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 1, Primaries: 1, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 1, Index: "ad2"},
 	}
 	direction := DOWN
 
@@ -365,8 +365,8 @@ func TestAtMaxReplicas(t *testing.T) {
 	eds.Spec.Scaling.MaxReplicas = 4
 
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 3, Index: "ad1"},
-		"ad2": ESIndex{Replicas: 1, Primaries: 3, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 3, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 3, Index: "ad2"},
 	}
 	direction := UP
 
@@ -397,7 +397,7 @@ func TestAtMaxDisk(t *testing.T) {
 	eds.Spec.Scaling.MinReplicas = 1
 
 	esIndices := map[string]ESIndex{
-		"ad1": ESIndex{Replicas: 1, Primaries: 6, Index: "ad1"},
+		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
 	}
 	direction := DOWN
 

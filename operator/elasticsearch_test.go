@@ -7,9 +7,9 @@ import (
 	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	"k8s.io/client-go/kubernetes/fake"
 
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -182,7 +182,7 @@ func TestValidateScalingSettings(tt *testing.T) {
 		{
 			msg: "scaling disabled",
 			scaling: &zv1.ElasticsearchDataSetScaling{
-				Enabled:          false,
+				Enabled: false,
 			},
 		},
 	} {

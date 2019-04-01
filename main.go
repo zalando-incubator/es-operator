@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zalando-incubator/es-operator/operator"
-	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/es-operator/operator"
+	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	"gopkg.in/alecthomas/kingpin.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"

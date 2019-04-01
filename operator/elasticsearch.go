@@ -11,9 +11,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
+	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/es-operator/pkg/clientset"
-	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	pv1beta1 "k8s.io/api/policy/v1beta1"
