@@ -766,6 +766,12 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 				eds.Status.LastScaleDownStarted = &now
 			}
 			log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
+
+			// update status
+			eds, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).UpdateStatus(eds)
+			if err != nil {
+				return err
+			}
 		}
 
 		// TODO: move to a function
@@ -781,6 +787,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 		if err != nil {
 			return err
 		}
+
 	}
 
 	return nil
