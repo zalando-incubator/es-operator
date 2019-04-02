@@ -780,13 +780,15 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 			return err
 		}
 
-		eds.Annotations[esScalingOperationKey] = string(jsonBytes)
+		if  scalingOperation.ScalingDirection != NONE {
+			eds.Annotations[esScalingOperationKey] = string(jsonBytes)
 
-		// persist changes of EDS
-		log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
-		_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(eds)
-		if err != nil {
-			return err
+			// persist changes of EDS
+			log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
+			_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(eds)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
