@@ -6,15 +6,7 @@
 [![go-doc](https://godoc.org/github.com/zalando-incubator/es-operator?status.svg)](https://godoc.org/github.com/zalando-incubator/es-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zalando-incubator/es-operator)](https://goreportcard.com/report/github.com/zalando-incubator/es-operator)
 
-This is a simple operator for running Elasticsearch in Kubernetes. It's an
-alternative to the
-[upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator)
-with more focus on operational aspects, like draining of Elasticsearch data nodes, rather than
-abstracting manifest definitions. One key feature is upgrading of
-Elasticsearch data nodes, as well has safely handling cluster upgrades while being
-highly available.
-
-The other key feature is about auto-scaling of Elasticsearch data nodes.
+This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining and offering auto-scaling capabilities for Elasticsearch data nodes, rather than just abstracting manifest definitions.
 
 ## How it works
 
