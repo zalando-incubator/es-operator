@@ -395,10 +395,16 @@ func (c *ESClient) GetIndices() ([]ESIndex, error) {
 }
 
 func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
+
+	if len(indices) == 0 {
+		return nil
+	}
+
 	err := c.ensureGreenClusterState()
 	if err != nil {
 		return err
 	}
+
 	for _, index := range indices {
 		c.logger().Infof("Setting number_of_replicas for index '%s' to %d.", index.Index, index.Replicas)
 		resp, err := resty.New().R().
