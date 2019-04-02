@@ -758,7 +758,6 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 
 		// update EDS definition.
 		if scalingOperation.NodeReplicas != nil && *scalingOperation.NodeReplicas != currentReplicas {
-			eds.Spec.Replicas = scalingOperation.NodeReplicas
 			now := metav1.Now()
 			if *scalingOperation.NodeReplicas > currentReplicas {
 				eds.Status.LastScaleUpStarted = &now
@@ -772,6 +771,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 			if err != nil {
 				return err
 			}
+			eds.Spec.Replicas = scalingOperation.NodeReplicas
 		}
 
 		// TODO: move to a function
