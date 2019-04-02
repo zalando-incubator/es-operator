@@ -41,6 +41,10 @@ spec:
         env:
         - name: ES_JAVA_OPTS
           value: "-Xms256m -Xmx256m"
+        - name: node.master
+          value: "true"
+        - name: node.data
+          value: "false"
         resources:
           requests:
             memory: 512Mi

@@ -448,3 +448,15 @@ func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int
 	}
 	return nil
 }
+
+func (c *ESClient) DeleteIndex(indexName string) error {
+	resp, err := resty.New().R().
+		Delete(fmt.Sprintf("%s/%s", c.Endpoint.String(), indexName))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("code status %d - %s", resp.StatusCode(), resp.Body())
+	}
+	return nil
+}

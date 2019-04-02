@@ -9,4 +9,3 @@ data:
     bootstrap.memory_lock: false
     discovery.zen.ping.unicast.hosts: es-master
     discovery.zen.minimum_master_nodes: 1
-    node.attr.group: master
