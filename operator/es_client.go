@@ -395,10 +395,16 @@ func (c *ESClient) GetIndices() ([]ESIndex, error) {
 }
 
 func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
+
+	if len(indices) == 0 {
+		return nil
+	}
+
 	err := c.ensureGreenClusterState()
 	if err != nil {
 		return err
 	}
+
 	for _, index := range indices {
 		c.logger().Infof("Setting number_of_replicas for index '%s' to %d.", index.Index, index.Replicas)
 		resp, err := resty.New().R().
@@ -434,6 +440,18 @@ func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int
 			),
 		)).
 		Put(fmt.Sprintf("%s/%s", c.Endpoint.String(), indexName))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("code status %d - %s", resp.StatusCode(), resp.Body())
+	}
+	return nil
+}
+
+func (c *ESClient) DeleteIndex(indexName string) error {
+	resp, err := resty.New().R().
+		Delete(fmt.Sprintf("%s/%s", c.Endpoint.String(), indexName))
 	if err != nil {
 		return err
 	}
