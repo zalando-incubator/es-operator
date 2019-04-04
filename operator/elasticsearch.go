@@ -232,13 +232,13 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 
 			for _, es := range resources {
 				if es.ElasticsearchDataSet.Spec.Scaling != nil && es.ElasticsearchDataSet.Spec.Scaling.Enabled {
-					endpoint := o.getElasticsearchEndpoint(&es.ElasticsearchDataSet)
+					endpoint := o.getElasticsearchEndpoint(es.ElasticsearchDataSet)
 
 					client := &ESClient{
 						Endpoint: endpoint,
 					}
 
-					err := o.scaleEDS(&es.ElasticsearchDataSet, es, client)
+					err := o.scaleEDS(es.ElasticsearchDataSet, es, client)
 					if err != nil {
 						o.logger.Error(err)
 						continue
@@ -627,7 +627,7 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 }
 
 type ESResource struct {
-	ElasticsearchDataSet zv1.ElasticsearchDataSet
+	ElasticsearchDataSet *zv1.ElasticsearchDataSet
 	StatefulSet          *appsv1.StatefulSet
 	MetricSet            *zv1.ElasticsearchMetricSet
 	Pods                 []v1.Pod
@@ -636,7 +636,7 @@ type ESResource struct {
 // Replicas returns the desired node replicas of an ElasticsearchDataSet
 // In case it was not specified, it will return '1'.
 func (es *ESResource) Replicas() int32 {
-	return edsReplicas(&es.ElasticsearchDataSet)
+	return edsReplicas(es.ElasticsearchDataSet)
 }
 
 // edsReplicas returns the desired node replicas of an ElasticsearchDataSet
@@ -683,7 +683,7 @@ func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, e
 		eds.Kind = "ElasticsearchDataSet"
 
 		resources[eds.UID] = &ESResource{
-			ElasticsearchDataSet: eds,
+			ElasticsearchDataSet: &eds,
 		}
 	}
 
@@ -749,9 +749,10 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 
 	currentReplicas := edsReplicas(eds)
 	eds.Spec.Replicas = &currentReplicas
+	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {
-		scalingOperation, err := getScalingOperation(eds, es.Pods, getScalingDirection(eds, es.MetricSet, o.metricsInterval), client)
+		scalingOperation, err := as.GetScalingOperation()
 		if err != nil {
 			return err
 		}
