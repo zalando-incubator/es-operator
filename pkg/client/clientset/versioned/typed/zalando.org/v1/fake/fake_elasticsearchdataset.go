@@ -131,7 +131,7 @@ func (c *FakeElasticsearchDataSets) DeleteCollection(options *v1.DeleteOptions, 
 // Patch applies the patch and returns the patched elasticsearchDataSet.
 func (c *FakeElasticsearchDataSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(elasticsearchdatasetsResource, c.ns, name, data, subresources...), &zalandoorgv1.ElasticsearchDataSet{})
+		Invokes(testing.NewPatchSubresourceAction(elasticsearchdatasetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.ElasticsearchDataSet{})
 
 	if obj == nil {
 		return nil, err
