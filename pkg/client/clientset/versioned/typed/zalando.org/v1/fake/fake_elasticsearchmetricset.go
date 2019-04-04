@@ -119,7 +119,7 @@ func (c *FakeElasticsearchMetricSets) DeleteCollection(options *v1.DeleteOptions
 // Patch applies the patch and returns the patched elasticsearchMetricSet.
 func (c *FakeElasticsearchMetricSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(elasticsearchmetricsetsResource, c.ns, name, data, subresources...), &zalandoorgv1.ElasticsearchMetricSet{})
+		Invokes(testing.NewPatchSubresourceAction(elasticsearchmetricsetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.ElasticsearchMetricSet{})
 
 	if obj == nil {
 		return nil, err
