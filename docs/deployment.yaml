@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: es-operator
-        image: pierone.stups.zalan.do/poirot/es-operator:latest
+        image: registry.opensource.zalan.do/poirot/es-operator:latest
         args:
         - --pod-selector=application=es-cluster
         - --elasticsearch-endpoint=http://elasticsearch:9200
