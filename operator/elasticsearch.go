@@ -491,6 +491,33 @@ func (r *EDSResource) OnStableReplicasHook(ctx context.Context) error {
 	return r.esClient.Cleanup(ctx)
 }
 
+// UpdateStatus updates the status of the EDS to set the current replicas from
+// StatefulSet and updating the observedGeneration.
+func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
+	observedGeneration := int64(0)
+	if r.eds.Status.ObservedGeneration != nil {
+		observedGeneration = *r.eds.Status.ObservedGeneration
+	}
+
+	replicas := int32(0)
+	if sts.Spec.Replicas != nil {
+		replicas = *sts.Spec.Replicas
+	}
+
+	if r.eds.Generation != observedGeneration ||
+		r.eds.Status.Replicas != replicas {
+		r.eds.Status.Replicas = replicas
+		r.eds.Status.ObservedGeneration = &r.eds.Generation
+		var err error
+		r.eds, err = r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(r.eds)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *EDSResource) applyScalingOperation() error {
 	operation, err := edsScalingOperation(r.eds)
 	if err != nil {
@@ -781,7 +808,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 			return err
 		}
 
-		if  scalingOperation.ScalingDirection != NONE {
+		if scalingOperation.ScalingDirection != NONE {
 			eds.Annotations[esScalingOperationKey] = string(jsonBytes)
 
 			// persist changes of EDS
