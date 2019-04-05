@@ -56,11 +56,10 @@ kubectl -n es-operator-demo port-forward $MASTER_POD 9200
 
 ## Step 5 - Add Elasticsearch Data Sets
 
-Finally, let's add data nodes. There are two manifests for the purpose of this demo. The simple stack will launch one data node, and has auto-scaling off. There is also a scaling stack in case you want to experiment with auto-scaling settings.
+Finally, let's add data nodes. For the purpose of this demo we have a simple stack will launch one data node, and has auto-scaling features turned off.
 
 ```
 kubectl apply -f elasticsearchdataset-simple.yaml
-kubectl apply -f elasticsearchdataset-scaling.yaml
 ```
 
 To check the results, first look for the custom resources.
@@ -69,7 +68,7 @@ To check the results, first look for the custom resources.
 kubectl -n es-operator-demo get eds
 ```
 
-The ES Operator creates a StatefulSet, which will spawn the Pods. This can take a few minutes depending on your network and cluster performance.
+The ES Operator creates a StatefulSet, which will spawn the Pod. This can take a few minutes depending on your network and cluster performance.
 
 ```
 kubectl -n es-operator-demo get sts
@@ -78,8 +77,6 @@ kubectl -n es-operator-demo get pods
 
 ## Step 6: Index Creation
 
-If you were successful, you can try some more advanced topics.
-
 We differentiated the stacks using an Elasticsearch node tag called `group`. It is advised to use this tag to bind indices with the same scaling requirements to nodes with the same `group` tag, by using the shard allocation setting like this:
 
  ```
@@ -87,7 +84,13 @@ curl -XPUT localhost:9200/demo-index -HContent-type:application/json \
  -d '{"number_of_shards":5, "number_of_replicas":2, "routing.allocation.include.group": "group2"}'
  ```
 
+## Advanced Step: Auto-Scaling
+
+Once you have gathered some experience in how the ES Operator handles your data nodes, you can start experimenting with auto-scaling features. The README.md offers some examples of different scaling scenarios, or look at the manifests of our [demo at the microXchg 2019](https://github.bus.zalan.do/otrosien/microxchg-demo).
+
 ## Advanced Step: Production-Readiness Features
+
+If you understood how auto-scaling works, you can tackle the next steps towards production readiness.
 
 The [Official Helm Charts](https://github.com/elastic/helm-charts/blob/master/elasticsearch/templates/statefulset.yaml) from Elasticsearch offer a few interesting features you may also want to integrate before going to production:
 
