@@ -44,6 +44,8 @@ spec:
           value: "false"
         - name: "node.data"
           value: "true"
+        - name: "ES_JAVA_OPTS"
+          value: "-Xmx500m -Xms500m"
         image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
         ports:
         - containerPort: 9300
@@ -56,10 +58,10 @@ spec:
         resources:
           limits:
             cpu: 200m
-            memory: 1500Mi
+            memory: 800Mi
           requests:
             cpu: 200m
-            memory: 1500Mi
+            memory: 800Mi
         securityContext:
           privileged: true
           procMount: null
