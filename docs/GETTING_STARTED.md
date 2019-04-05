@@ -13,7 +13,7 @@ The ES Operator needs special permissions to access Kubernetes APIs, and Elastic
 Therefore as the first step we deploy a serviceAccount `operator` with the necessary RBAC roles attached.
 
 ```
-kubectl apply -f cluster_roles.yaml
+kubectl apply -f cluster-roles.yaml
 ```
 
 ## Step 2 - Register Custom Resource Definitions
@@ -21,26 +21,37 @@ kubectl apply -f cluster_roles.yaml
 The ES Operator manages two custom resources. These need to be registered in your cluster.
 
 ```
-kubectl apply -f custom_resource_definitions.yaml
+kubectl apply -f custom-resource-definitions.yaml
 ```
 
 
 ## Step 3 - Deploy ES Operator
 
-Next, we'll deploy our operator. It will be created from a deployment manifest, and pull the latest build.
+Next, we'll deploy our operator. It will be created from a deployment manifest in the namespace `es-operator-demo`, and pull the latest image.
 
 ```
 kubectl apply -f es-operator.yaml
 ```
 
-## Step 4 - Bootstrap Elasticsearch Cluster
+You can check if it was successfully launched:
+
+```
+kubectl -n es-operator-demo get pods
+```
+
+## Step 4 - Bootstrap Your Elasticsearch Cluster
 
 The Elasticsearch will be boot-strapped from a set of master nodes. For the purpose of this demo, a single master is sufficient. For production a set of three masters is recommended.
+
+```
+kubectl apply -f elasticsearch-cluster.yaml
+```
 
 The manifest also creates services for the transport and HTTP protocols. If you tunnel to port 9200 on the master, you should be able to communicate with your Elasticsearch cluster.
 
 ```
-kubectl apply -f elasticsearch-cluster.yaml
+MASTER_POD=$(kubectl -n es-operator-demo get pods -l application=elasticsearch,role=master -o custom-columns=:metadata.name --no-headers | head -n 1)
+kubectl -n es-operator-demo port-forward $MASTER_POD 9200
 ```
 
 ## Step 5 - Add Elasticsearch Data Sets
@@ -52,3 +63,40 @@ kubectl apply -f elasticsearchdataset-simple.yaml
 kubectl apply -f elasticsearchdataset-scaling.yaml
 ```
 
+To check the results, first look for the custom resources.
+
+```
+kubectl -n es-operator-demo get eds
+```
+
+The ES Operator creates a StatefulSet, which will spawn the Pods. This can take a few minutes depending on your network and cluster performance.
+
+```
+kubectl -n es-operator-demo get sts
+kubectl -n es-operator-demo get pods
+```
+
+## Step 6: Index Creation
+
+If you were successful, you can try some more advanced topics.
+
+We differentiated the stacks using an Elasticsearch node tag called `group`. It is advised to use this tag to bind indices with the same scaling requirements to nodes with the same `group` tag, by using the shard allocation setting like this:
+
+ ```
+curl -XPUT localhost:9200/demo-index -HContent-type:application/json \
+ -d '{"number_of_shards":5, "number_of_replicas":2, "routing.allocation.include.group": "group2"}'
+ ```
+
+## Advanced Step: Production-Readiness Features
+
+The [Official Helm Charts](https://github.com/elastic/helm-charts/blob/master/elasticsearch/templates/statefulset.yaml) from Elasticsearch offer a few interesting features you may also want to integrate before going to production:
+
+* Different persistence options
+* Host-based anti-affinity
+* Improved script-based readiness checks
+
+We haven't seen it in their helm, but if you want high availability of your cluster, use the [allocation awareness](https://www.elastic.co/guide/en/elasticsearch/reference/current/allocation-awareness.html) features to ensure spread of the data across different locations, zones or racks.
+
+## Advanced Step: Different Elasticsearch Clusters
+
+Of course you can decide if the ES Operator should manage one big cluster, or you want to run multiple smaller clusters. This is totally possible. Just make sure they have different cluster names and use different hostnames for cluster discovery through the Kubernetes service.

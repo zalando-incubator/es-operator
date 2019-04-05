@@ -17,8 +17,6 @@ metadata:
   labels:
     application: es-operator
     version: latest
-  annotations:
-    downscaler/exclude: "true"
 spec:
   replicas: 1
   strategy:

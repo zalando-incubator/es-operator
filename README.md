@@ -22,6 +22,10 @@ are basically a thin wrapper around StatefulSets. One EDS represents a common gr
 * Target CPU ratio is a safe and well-known metric to scale on in order to avoid latency spikes caused by Garbage Collection.
 * In case of emergency, manual scaling is possible by disabling the auto-scaling feature.
 
+## Getting Started
+
+For a quick tutorial how to deploy the ES Operator look at our [Getting Started Guide](docs/GETTING_STARTED.md).
+
 ## Custom Resource
 
 ### Full Example
