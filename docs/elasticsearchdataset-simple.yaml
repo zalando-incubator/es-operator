@@ -3,8 +3,8 @@ kind: ElasticsearchDataSet
 metadata:
   labels:
     application: elasticsearch
-    group: simple
     role: data
+    group: simple
   name: es-data-simple
   namespace: es-operator-demo
 spec:
@@ -16,7 +16,7 @@ spec:
       labels:
         application: elasticsearch
         role: data
-        group: es-data-simple
+        group: simple
     spec:
       containers:
       - name: elasticsearch
@@ -31,7 +31,7 @@ spec:
           value: "false"
         - name: "node.data"
           value: "true"
-        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.0
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
         ports:
         - containerPort: 9300
           name: transport
@@ -42,10 +42,10 @@ spec:
           timeoutSeconds: 10
         resources:
           limits:
-            cpu: 1000m
+            cpu: 100m
             memory: 1500Mi
           requests:
-            cpu: 1000m
+            cpu: 100m
             memory: 1500Mi
         securityContext:
           privileged: true
