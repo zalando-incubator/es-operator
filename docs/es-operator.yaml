@@ -34,8 +34,6 @@ spec:
       containers:
       - name: es-operator
         image: registry.opensource.zalan.do/poirot/es-operator:latest
-        args:
-        - --priority-node-selector=lifecycle-status=ready
         resources:
           limits:
             cpu: 20m
