@@ -13,7 +13,7 @@ The ES Operator needs special permissions to access Kubernetes APIs, and Elastic
 Therefore as the first step we deploy a serviceAccount `operator` with the necessary RBAC roles attached.
 
 ```
-kubectl apply -f cluster-roles.yaml
+kubectl apply -f docs/cluster-roles.yaml
 ```
 
 ## Step 2 - Register Custom Resource Definitions
@@ -21,7 +21,7 @@ kubectl apply -f cluster-roles.yaml
 The ES Operator manages two custom resources. These need to be registered in your cluster.
 
 ```
-kubectl apply -f custom-resource-definitions.yaml
+kubectl apply -f docs/custom-resource-definitions.yaml
 ```
 
 
@@ -30,7 +30,7 @@ kubectl apply -f custom-resource-definitions.yaml
 Next, we'll deploy our operator. It will be created from a deployment manifest in the namespace `es-operator-demo`, and pull the latest image.
 
 ```
-kubectl apply -f es-operator.yaml
+kubectl apply -f docs/es-operator.yaml
 ```
 
 You can check if it was successfully launched:
@@ -44,7 +44,7 @@ kubectl -n es-operator-demo get pods
 The Elasticsearch will be boot-strapped from a set of master nodes. For the purpose of this demo, a single master is sufficient. For production a set of three masters is recommended.
 
 ```
-kubectl apply -f elasticsearch-cluster.yaml
+kubectl apply -f docs/elasticsearch-cluster.yaml
 ```
 
 The manifest also creates services for the transport and HTTP protocols. If you tunnel to port 9200 on the master, you should be able to communicate with your Elasticsearch cluster.
@@ -59,7 +59,7 @@ kubectl -n es-operator-demo port-forward $MASTER_POD 9200
 Finally, let's add data nodes. For the purpose of this demo we have a simple stack will launch one data node, and has auto-scaling features turned off.
 
 ```
-kubectl apply -f elasticsearchdataset-simple.yaml
+kubectl apply -f docs/elasticsearchdataset-simple.yaml
 ```
 
 To check the results, first look for the custom resources.
