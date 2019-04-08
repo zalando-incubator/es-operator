@@ -166,7 +166,7 @@ $ make
 ## Running
 
 The `es-operator` can be run as a deployment in the cluster. See
-[deployment.yaml](/docs/deployment.yaml) for an example.
+[es-operator.yaml](/docs/es-operator.yaml) for an example.
 
 By default the operator will manage all `ElasticsearchDataSets` in the cluster
 but you can limit it to a certain resources by setting the `--operator-id`
@@ -190,7 +190,7 @@ the `my-namespace` namespace.
 Can be deployed just by running:
 
 ```bash
-$ kubectl apply -f docs/deployment.yaml
+$ kubectl apply -f docs/es-operator.yaml
 ```
 
 ### Running locally
