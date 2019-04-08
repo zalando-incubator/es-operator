@@ -86,7 +86,7 @@ curl -XPUT localhost:9200/demo-index -HContent-type:application/json \
 
 ## Advanced Step: Auto-Scaling
 
-Once you have gathered some experience in how the ES Operator handles your data nodes, you can start experimenting with auto-scaling features. The README.md offers some examples of different scaling scenarios, or look at the manifests of our [demo at the microXchg 2019](https://github.bus.zalan.do/otrosien/microxchg-demo).
+Once you have gathered some experience in how the ES Operator handles your data nodes, you can start experimenting with auto-scaling features. The README.md offers some examples of different scaling scenarios, or look at the manifests of our [demo at the microXchg 2019](https://github.com/otrosien/microxchg19-demo).
 
 ## Advanced Step: Production-Readiness Features
 
