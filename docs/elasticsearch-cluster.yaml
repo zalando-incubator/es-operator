@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operator
+  namespace: es-operator-demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-config
+  namespace: es-operator-demo
+data:
+  elasticsearch.yml: |
+    cluster.name: es-cluster
+    network.host: "0.0.0.0"
+    bootstrap.memory_lock: false
+    discovery.zen.ping.unicast.hosts: es-cluster
+    discovery.zen.minimum_master_nodes: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: es-master
+  namespace: es-operator-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: elasticsearch
+      role: master
+  template:
+    metadata:
+      labels:
+        application: elasticsearch
+        role: master
+    spec:
+      serviceAccountName: operator
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+      - name: init-sysctl
+        image: busybox:1.30
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 50m
+          limits:
+            memory: 50Mi
+            cpu: 50m
+        securityContext:
+          privileged: true
+      containers:
+      - name: elasticsearch
+        resources:
+          requests:
+            memory: 600Mi
+            cpu: 100m
+          limits:
+            memory: 600Mi
+            cpu: 100m
+        securityContext:
+          runAsUser: 1000
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
+        env:
+        - name: "node.name"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "ES_JAVA_OPTS"
+          value: "-Xmx300m -Xms300m"
+        - name: node.master
+          value: "true"
+        - name: node.data
+          value: "false"
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /_cluster/health?local=true
+            port: 9200
+          initialDelaySeconds: 20
+        ports:
+        - containerPort: 9200
+          name: es-http
+        - containerPort: 9300
+          name: es-transport
+        volumeMounts:
+        - name: es-data
+          mountPath: /usr/share/elasticsearch/data
+        - name: elasticsearch-config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+      volumes:
+        - name: es-data
+          emptyDir: {}
+        - name: elasticsearch-config
+          configMap:
+            name: es-config
+            items:
+              - key: elasticsearch.yml
+                path: elasticsearch.yml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-http
+  namespace: es-operator-demo
+spec:
+  selector:
+    application: elasticsearch
+  ports:
+  - name: http
+    port: 9200
+    targetPort: 9200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-cluster
+  namespace: es-operator-demo
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    application: elasticsearch
+    role: master
+  ports:
+  - name: transport
+    port: 9300
