@@ -675,15 +675,14 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 			return 1
 		}
 		return *eds.Spec.Replicas
-	} else {
-		// initialize with minReplicas
-		minReplicas := eds.Spec.Scaling.MinReplicas
-		if eds.Spec.Replicas == nil {
-			return minReplicas
-		}
-		currentReplicas := *eds.Spec.Replicas
-		return int32(math.Max(float64(currentReplicas), float64(scaling.MinReplicas)))
 	}
+	// initialize with minReplicas
+	minReplicas := eds.Spec.Scaling.MinReplicas
+	if eds.Spec.Replicas == nil {
+		return minReplicas
+	}
+	currentReplicas := *eds.Spec.Replicas
+	return int32(math.Max(float64(currentReplicas), float64(scaling.MinReplicas)))
 }
 
 // collectResources collects all the ElasticsearchDataSet resources and there

@@ -300,7 +300,7 @@ func updateEDS(name string, eds *zv1.ElasticsearchDataSet) error {
 }
 
 func deleteEDS(name string) error {
-	err := edsInterface().Delete(name, &metav1.DeleteOptions{ GracePeriodSeconds: pint64(10), })
+	err := edsInterface().Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: pint64(10)})
 	return err
 }
 

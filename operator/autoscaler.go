@@ -7,7 +7,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // 1. check if we have enough data
@@ -272,14 +272,13 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, direction Scal
 				if index.Replicas >= scalingSpec.MaxIndexReplicas {
 					return noopScalingOperation(fmt.Sprintf("Not allowed to scale up due to maxIndexReplicas (%d) reached for index %s.",
 						scalingSpec.MaxIndexReplicas, index.Index))
-				} else {
-					newTotalShards += index.Primaries
-					newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
-						Index:     index.Index,
-						Primaries: index.Primaries,
-						Replicas:  index.Replicas + 1,
-					})
 				}
+				newTotalShards += index.Primaries
+				newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+					Index:     index.Index,
+					Primaries: index.Primaries,
+					Replicas:  index.Replicas + 1,
+				})
 			}
 			if newTotalShards != currentTotalShards {
 				newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(newTotalShards)/float64(currentShardToNodeRatio))))

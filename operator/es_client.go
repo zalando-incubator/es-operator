@@ -13,8 +13,7 @@ import (
 
 	"github.com/go-resty/resty"
 	log "github.com/sirupsen/logrus"
-
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // TODO make configurable as flags.

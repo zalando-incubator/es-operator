@@ -1,10 +1,11 @@
 package main
 
 import (
+	"testing"
+
 	"github.com/cenk/backoff"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	"testing"
 )
 
 func TestEDSCPUAutoscaleUP(t *testing.T) {

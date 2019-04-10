@@ -25,6 +25,9 @@ check:
 	golint $(GOPKGS)
 	go vet -v $(GOPKGS)
 
+lint:
+	golangci-lint run ./...
+
 $(GENERATED):
 	./hack/update-codegen.sh
 

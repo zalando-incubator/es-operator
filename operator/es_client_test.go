@@ -1,12 +1,13 @@
 package operator
 
 import (
+	"net/url"
+	"testing"
+
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/api/core/v1"
-	"net/url"
-	"testing"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestDrain(t *testing.T) {
