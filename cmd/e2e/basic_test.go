@@ -38,7 +38,7 @@ func (f *TestEDSSpecFactory) Scaling(scaling *zv1.ElasticsearchDataSetScaling) *
 func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 	var result = zv1.ElasticsearchDataSetSpec{
 		Replicas: &f.replicas,
-		Scaling: f.scaling,
+		Scaling:  f.scaling,
 		Template: v1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
