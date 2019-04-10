@@ -1,6 +1,5 @@
 run:
   concurrency: 4
-  modules-download-mode: readonly
 
 linters-settings:
   golint:
