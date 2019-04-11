@@ -135,3 +135,81 @@ func TestGetIndices(t *testing.T) {
 	require.EqualValues(t, 1, indices[0].Replicas)
 
 }
+
+func TestUpdateIndexSettings(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/myindex/_settings",
+		httpmock.NewStringResponder(200, `{}`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	indices := make([]ESIndex, 0, 1)
+	indices = append(indices, ESIndex{
+		Primaries: 1,
+		Replicas:  1,
+		Index:     "myindex",
+	})
+	err := systemUnderTest.UpdateIndexSettings(indices)
+
+	assert.NoError(t, err)
+
+}
+
+func TestCreateIndex(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/myindex",
+		httpmock.NewStringResponder(200, `{}`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	err := systemUnderTest.CreateIndex("myindex", "mygroup", 2, 2)
+
+	assert.NoError(t, err)
+
+}
+
+func TestDeleteIndex(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("DELETE", "http://elasticsearch:9200/myindex",
+		httpmock.NewStringResponder(200, `{}`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	err := systemUnderTest.DeleteIndex("myindex")
+
+	assert.NoError(t, err)
+}
+
+func TestEnsureGreenClusterState(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"yellow"}`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	err := systemUnderTest.ensureGreenClusterState()
+
+	assert.Error(t, err)
+}
