@@ -1,0 +1,86 @@
+apiVersion: zalando.org/v1
+kind: ElasticsearchDataSet
+metadata:
+  labels:
+    application: elasticsearch
+    role: data
+    group: simple
+  name: es-data-simple
+  namespace: es-operator-demo
+spec:
+  replicas: 1
+  scaling:
+    enabled: false
+  template:
+    metadata:
+      labels:
+        application: elasticsearch
+        role: data
+        group: simple
+    spec:
+      containers:
+      - name: elasticsearch
+        env:
+        - name: "node.name"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "node.attr.group"
+          value: "simple"
+        - name: "node.master"
+          value: "false"
+        - name: "node.data"
+          value: "true"
+        - name: "ES_JAVA_OPTS"
+          value: "-Xmx500m -Xms500m"
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
+        ports:
+        - containerPort: 9300
+          name: transport
+        readinessProbe:
+          httpGet:
+            path: /_cat/master
+            port: 9200
+          timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: 100m
+            memory: 800Mi
+          requests:
+            cpu: 100m
+            memory: 800Mi
+        securityContext:
+          privileged: true
+          procMount: null
+        volumeMounts:
+        - mountPath: /usr/share/elasticsearch/data
+          name: data
+        - name: elasticsearch-config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+      initContainers:
+      - command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        image: busybox:1.30
+        name: init-sysctl
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+      serviceAccountName: operator
+      volumes:
+      - name: data
+        emptyDir: {}
+      - name: elasticsearch-config
+        configMap:
+          name: es-config
+          items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml

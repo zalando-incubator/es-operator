@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -73,6 +73,8 @@ type ElasticsearchDataSetStatus struct {
 	// generation, which is updated on mutation by the API Server.
 	// +optional
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty" protobuf:"varint,1,opt,name=observedGeneration"`
+	// Replicas is the number of Pods by the underlying StatefulSet.
+	Replicas int32 `json:"replicas" protobuf:"varint,2,opt,name=replicas"`
 
 	LastScaleUpStarted   *metav1.Time `json:"lastScaleUpStarted,omitempty"`
 	LastScaleUpEnded     *metav1.Time `json:"lastScaleUpEnded,omitempty"`

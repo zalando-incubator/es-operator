@@ -1,7 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: es-operator-demo
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operator
+  namespace: es-operator-demo
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: es-operator
+  namespace: es-operator-demo
   labels:
     application: es-operator
     version: latest
@@ -18,13 +30,10 @@ spec:
         application: es-operator
         version: latest
     spec:
+      serviceAccountName: operator
       containers:
       - name: es-operator
-        image: pierone.stups.zalan.do/poirot/es-operator:latest
-        args:
-        - --pod-selector=application=es-cluster
-        - --elasticsearch-endpoint=http://elasticsearch:9200
-        - --priority-node-selector=lifecycle-status=ready
+        image: registry.opensource.zalan.do/poirot/es-operator:latest
         resources:
           limits:
             cpu: 20m

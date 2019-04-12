@@ -26,7 +26,7 @@ CUSTOM_RESOURCE_VERSION="v1"
 SCRIPT_ROOT="$(dirname ${BASH_SOURCE})/.."
 
 # special setup for go modules
-CODE_GEN_K8S_VERSION="b1289fc74931d4b6b04bd1a259acfc88a2cb0a66" # 1.12.6 (https://github.com/kubernetes/code-generator/releases/tag/kubernetes-1.12.6)
+CODE_GEN_K8S_VERSION="c2090bec4d9b1fb25de3812f868accc2bc9ecbae" # 1.13.5 (https://github.com/kubernetes/code-generator/releases/tag/kubernetes-1.13.5)
 packages=(
 defaulter-gen
 client-gen

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultWaitTimeout = 10 * time.Minute
+	defaultWaitTimeout = 15 * time.Minute
 )
 
 var (
@@ -163,13 +163,13 @@ func newAwaiter(t *testing.T, description string) *awaiter {
 
 func (a *awaiter) await() error {
 	deadline := time.Now().Add(a.timeout)
-	a.t.Logf("Waiting for %s...", a.description)
+	a.t.Logf("Waiting for %s until %s (UTC)...", a.description, deadline.Format("3:04PM"))
 	for {
 		retry, err := a.poll()
 		if err != nil {
 			if retry && time.Now().Before(deadline) {
 				a.t.Logf("%v", err)
-				time.Sleep(1 * time.Second)
+				time.Sleep(10 * time.Second)
 				continue
 			}
 			return err
@@ -296,6 +296,11 @@ func createEDS(name string, spec zv1.ElasticsearchDataSetSpec) error {
 
 func updateEDS(name string, eds *zv1.ElasticsearchDataSet) error {
 	_, err := edsInterface().Update(eds)
+	return err
+}
+
+func deleteEDS(name string) error {
+	err := edsInterface().Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: pint64(10)})
 	return err
 }
 

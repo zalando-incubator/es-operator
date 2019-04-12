@@ -45,6 +45,7 @@ func (r *mockResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 }
 func (r *mockResource) Self() runtime.Object                           { return r.eds }
 func (r *mockResource) EnsureResources() error                         { return nil }
+func (r *mockResource) UpdateStatus(sts *appsv1.StatefulSet) error     { return nil }
 func (r *mockResource) PreScaleDownHook(ctx context.Context) error     { return nil }
 func (r *mockResource) OnStableReplicasHook(ctx context.Context) error { return nil }
 func (r *mockResource) Drain(ctx context.Context, pod *v1.Pod) error   { return nil }

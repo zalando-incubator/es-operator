@@ -5,14 +5,27 @@ go:
   - "1.12.x"
 
 env:
-- GO111MODULE=on
+- GO111MODULE=on GOLANGCI_RELEASE="v1.16.0"
 
-before_install:
-  - go get github.com/mattn/goveralls
-  - go get github.com/lawrencewoodman/roveralls
-
-script:
-  - make test
-  - make build.docker
-  - roveralls -ignore cmd/e2e
-  - goveralls -v -coverprofile=roveralls.coverprofile -service=travis-ci
+jobs:
+  include:
+    - stage: Build
+      before_script:
+        - go get github.com/mattn/goveralls
+        - go get github.com/lawrencewoodman/roveralls
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_RELEASE}
+      script:
+        - make test
+        - make lint
+        - make build.docker
+        - roveralls -ignore cmd/e2e
+        - goveralls -v -coverprofile=roveralls.coverprofile -service=travis-ci
+    - stage: Documentation Tests
+      before_script:
+        - go get sigs.k8s.io/kind
+        - curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+        - kind create cluster
+        - export KUBECONFIG="$(kind get kubeconfig-path)"
+      script:
+        - bash -c "grep '^kubectl apply' docs/GETTING_STARTED.md | sh"
+        - bash -c "for i in {1..10}; do kubectl -n es-operator-demo get all ; echo '========='; if kubectl -n es-operator-demo get sts es-data-simple | grep '1/1'; then echo 'SUCCESS' ; exit 0 ; fi ; sleep 60 ; done; exit 1"

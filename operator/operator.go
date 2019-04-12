@@ -68,6 +68,11 @@ type StatefulResource interface {
 	// EnsureResources
 	EnsureResources() error
 
+	// UpdateStatus updates the status of the StatefulResource. The
+	// statefulset is parsed to provide additional information like
+	// replicas to the status.
+	UpdateStatus(sts *appsv1.StatefulSet) error
+
 	// PreScaleDownHook is triggered when a scaledown is to be performed.
 	// It's ensured that the hook will be triggered at least once, but it
 	// may trigger multiple times e.g. if the scaledown fails at a later
@@ -125,6 +130,11 @@ func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
 	sts, err := o.reconcileStatefulset(sr)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile StatefulSet: %v", err)
+	}
+
+	err = sr.UpdateStatus(sts)
+	if err != nil {
+		return fmt.Errorf("failed to update status: %v", err)
 	}
 
 	err = o.operateNextPod(ctx, sts, sr)

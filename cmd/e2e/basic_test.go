@@ -38,9 +38,7 @@ func (f *TestEDSSpecFactory) Scaling(scaling *zv1.ElasticsearchDataSetScaling) *
 func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 	var result = zv1.ElasticsearchDataSetSpec{
 		Replicas: &f.replicas,
-		Scaling: &zv1.ElasticsearchDataSetScaling{
-			Enabled: false,
-		},
+		Scaling:  f.scaling,
 		Template: v1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
@@ -52,9 +50,6 @@ func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 		},
 	}
 
-	if f.scaling != nil {
-		result.Scaling = f.scaling
-	}
 	return result
 }
 
@@ -124,5 +119,5 @@ func TestEDSCreateBasic(t *testing.T) {
 	edsName := "basic"
 	edsSpec := testEDSCreate(t, edsName)
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
-
+	deleteEDS(edsName)
 }
