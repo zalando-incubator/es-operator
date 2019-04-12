@@ -1,4 +1,0 @@
-- Mikkel Larsen <mikkel.larsen@zalando.de>
-- Nick Juettner <nick@zalando.de>
-- Alexey Alekseev <alexey.alekseev@zalando.de>
-- Oliver Trosien <oliver.trosien@zalando.de>
