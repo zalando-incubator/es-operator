@@ -515,6 +515,11 @@ func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
 		if err != nil {
 			return err
 		}
+
+		// set TypeMeta manually because of this bug:
+		// https://github.com/kubernetes/client-go/issues/308
+		r.eds.APIVersion = "zalando.org/v1"
+		r.eds.Kind = "ElasticsearchDataSet"
 	}
 
 	return nil
