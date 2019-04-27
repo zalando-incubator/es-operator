@@ -21,7 +21,7 @@ spec:
       serviceAccountName: operator
       initContainers:
       - name: init-sysctl
-        image: busybox:1.30
+        image: "busybox:1.30"
         command:
         - sysctl
         - -w
@@ -37,7 +37,7 @@ spec:
           privileged: true
       containers:
       - name: elasticsearch
-        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
+        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
         env:
         - name: ES_JAVA_OPTS
           value: "-Xms256m -Xmx256m"

@@ -49,7 +49,7 @@ var (
 			Containers: []v1.Container{
 				{
 					Name:  "elasticsearch",
-					Image: "docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1",
+					Image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0",
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: 9200,
