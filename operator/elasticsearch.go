@@ -332,7 +332,7 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 	pdb, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return err
+			return fmt.Errorf("failed to get PodDisruptionBudget: %v", err)
 		}
 		pdb = nil
 	}
@@ -340,8 +340,9 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 	// check if owner
 	if pdb != nil && !isOwnedReference(r, pdb.ObjectMeta) {
 		return fmt.Errorf(
-			"PodDisruptionBudget %s/%s is not owned by the ElasticsearchDataSet %s/%s",
+			"PodDisruptionBudget %s/%s is not owned by the %s %s/%s",
 			pdb.Namespace, pdb.Name,
+			r.eds.Kind,
 			r.eds.Namespace, r.eds.Name,
 		)
 	}
@@ -381,11 +382,11 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 		var err error
 		_, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Create(pdb)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create PodDisruptionBudget: %v", err)
 		}
 		r.recorder.Event(r.eds, v1.EventTypeNormal, "CreatedPDB", fmt.Sprintf(
-			"Created PodDisruptionBudget '%s/%s' for ElasticsearchDataSet",
-			pdb.Namespace, pdb.Name,
+			"Created PodDisruptionBudget '%s/%s' for %s",
+			pdb.Namespace, pdb.Name, r.eds.Kind,
 		))
 	}
 
@@ -401,7 +402,7 @@ func (r *EDSResource) ensureService() error {
 	svc, err = r.kube.CoreV1().Services(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return err
+			return fmt.Errorf("failed to get Service: %v", err)
 		}
 		svc = nil
 	}
@@ -409,8 +410,9 @@ func (r *EDSResource) ensureService() error {
 	// check if owner
 	if svc != nil && !isOwnedReference(r, svc.ObjectMeta) {
 		return fmt.Errorf(
-			"the Service '%s/%s' is not owned by the ElasticsearchDataSet '%s/%s'",
+			"the Service '%s/%s' is not owned by the %s '%s/%s'",
 			svc.Namespace, svc.Name,
+			r.eds.Kind,
 			r.eds.Namespace, r.eds.Name,
 		)
 	}
@@ -456,11 +458,11 @@ func (r *EDSResource) ensureService() error {
 		var err error
 		_, err = r.kube.CoreV1().Services(svc.Namespace).Create(svc)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create Service: %v", err)
 		}
 		r.recorder.Event(r.eds, v1.EventTypeNormal, "CreatedService", fmt.Sprintf(
-			"Created Service '%s/%s' for ElasticsearchDataSet",
-			svc.Namespace, svc.Name,
+			"Created Service '%s/%s' for %s",
+			svc.Namespace, svc.Name, r.eds.Kind,
 		))
 	}
 
