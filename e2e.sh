@@ -15,7 +15,7 @@ kubectl create ns "$NAMESPACE"
 kubectl --namespace "$NAMESPACE" apply -f cmd/e2e/account_cdp.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es-master-deployment.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es-master-service.yaml
-kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es-master-config.yaml
+kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es-config.yaml
 sed -e "s#{{{NAMESPACE}}}#$NAMESPACE#" \
     -e "s#{{{IMAGE}}}#$IMAGE#" \
     -e "s#{{{OPERATOR_ID}}}#$OPERATOR_ID#" < manifests/es-operator.yaml \
