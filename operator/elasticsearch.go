@@ -510,16 +510,16 @@ func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
 		r.eds.Status.Replicas != replicas {
 		r.eds.Status.Replicas = replicas
 		r.eds.Status.ObservedGeneration = &r.eds.Generation
-		var err error
-		r.eds, err = r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(r.eds)
+		eds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(r.eds)
 		if err != nil {
 			return err
 		}
 
 		// set TypeMeta manually because of this bug:
 		// https://github.com/kubernetes/client-go/issues/308
-		r.eds.APIVersion = "zalando.org/v1"
-		r.eds.Kind = "ElasticsearchDataSet"
+		eds.APIVersion = "zalando.org/v1"
+		eds.Kind = "ElasticsearchDataSet"
+		r.eds = eds
 	}
 
 	return nil
