@@ -2,7 +2,9 @@ package operator
 
 import (
 	"fmt"
+
 	"math"
+
 	"time"
 
 	log "github.com/sirupsen/logrus"
