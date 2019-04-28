@@ -1,4 +1,5 @@
 version: "2017-09-20"
+allow_concurrent_pipelines: true
 pipeline:
 - id: build
   overlay: ci/golang
