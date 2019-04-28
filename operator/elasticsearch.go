@@ -332,7 +332,12 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 	pdb, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to get PodDisruptionBudget: %v", err)
+			return fmt.Errorf(
+				"failed to get PodDisruptionBudget for %s %s/%s: %v",
+				r.eds.Kind,
+				r.eds.Namespace, r.eds.Name,
+				err,
+			)
 		}
 		pdb = nil
 	}
@@ -382,7 +387,12 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 		var err error
 		_, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Create(pdb)
 		if err != nil {
-			return fmt.Errorf("failed to create PodDisruptionBudget: %v", err)
+			return fmt.Errorf(
+				"failed to create PodDisruptionBudget for %s %s/%s: %v",
+				r.eds.Kind,
+				r.eds.Namespace, r.eds.Name,
+				err,
+			)
 		}
 		r.recorder.Event(r.eds, v1.EventTypeNormal, "CreatedPDB", fmt.Sprintf(
 			"Created PodDisruptionBudget '%s/%s' for %s",
@@ -402,7 +412,12 @@ func (r *EDSResource) ensureService() error {
 	svc, err = r.kube.CoreV1().Services(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to get Service: %v", err)
+			return fmt.Errorf(
+				"failed to get Service for %s %s/%s: %v",
+				r.eds.Kind,
+				r.eds.Namespace, r.eds.Name,
+				err,
+			)
 		}
 		svc = nil
 	}
@@ -458,7 +473,12 @@ func (r *EDSResource) ensureService() error {
 		var err error
 		_, err = r.kube.CoreV1().Services(svc.Namespace).Create(svc)
 		if err != nil {
-			return fmt.Errorf("failed to create Service: %v", err)
+			return fmt.Errorf(
+				"failed to create Service for %s %s/%s: %v",
+				r.eds.Kind,
+				r.eds.Namespace, r.eds.Name,
+				err,
+			)
 		}
 		r.recorder.Event(r.eds, v1.EventTypeNormal, "CreatedService", fmt.Sprintf(
 			"Created Service '%s/%s' for %s",
