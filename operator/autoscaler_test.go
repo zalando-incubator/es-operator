@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestScalingDirection(t *testing.T) {
+func TestScalingHint(t *testing.T) {
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "EDS1",
@@ -40,7 +40,7 @@ func TestScalingDirection(t *testing.T) {
 	as := systemUnderTest(eds, esMSet, nil)
 
 	// don't scale: not enough samples.
-	require.Equal(t, NONE, as.getScalingDirection())
+	require.Equal(t, NONE, as.scalingHint())
 
 	esMSet.Metrics = []zv1.ElasticsearchMetric{
 		{
@@ -62,7 +62,7 @@ func TestScalingDirection(t *testing.T) {
 	}
 
 	// scale down
-	require.Equal(t, DOWN, as.getScalingDirection())
+	require.Equal(t, DOWN, as.scalingHint())
 
 	esMSet.Metrics = []zv1.ElasticsearchMetric{
 		{
@@ -84,7 +84,7 @@ func TestScalingDirection(t *testing.T) {
 	}
 
 	// don't scale: one sample not in threshold
-	require.Equal(t, NONE, as.getScalingDirection())
+	require.Equal(t, NONE, as.scalingHint())
 
 	esMSet.Metrics = []zv1.ElasticsearchMetric{
 		{
@@ -110,7 +110,7 @@ func TestScalingDirection(t *testing.T) {
 	}
 
 	// scale up
-	require.Equal(t, UP, as.getScalingDirection())
+	require.Equal(t, UP, as.scalingHint())
 
 	esMSet.Metrics = []zv1.ElasticsearchMetric{
 		{
@@ -135,7 +135,7 @@ func TestScalingDirection(t *testing.T) {
 	eds.Status.LastScaleUpStarted = &now
 
 	// don't scale: cool-down period.
-	require.Equal(t, NONE, as.getScalingDirection())
+	require.Equal(t, NONE, as.scalingHint())
 
 }
 
@@ -148,12 +148,13 @@ func TestScaleUp(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 3, Primaries: 6, Index: "ad1"},
 	}
-	direction := UP
+	scalingHint := UP
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(5), *actual.NodeReplicas)
+	require.Equal(t, UP, actual.ScalingDirection)
 }
 
 func TestScaleUpByAddingReplicas(t *testing.T) {
@@ -165,13 +166,14 @@ func TestScaleUpByAddingReplicas(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 1, Primaries: 4, Index: "ad1"},
 	}
-	direction := UP
+	scalingHint := UP
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(6), *actual.NodeReplicas)
 	require.Equal(t, int32(2), actual.IndexReplicas[0].Replicas)
+	require.Equal(t, UP, actual.ScalingDirection)
 }
 
 func TestScaleDown(t *testing.T) {
@@ -183,12 +185,13 @@ func TestScaleDown(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(3), *actual.NodeReplicas)
+	require.Equal(t, DOWN, actual.ScalingDirection)
 }
 
 func TestCannotScaleDownAnymore(t *testing.T) {
@@ -202,12 +205,13 @@ func TestCannotScaleDownAnymore(t *testing.T) {
 		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
 		"ad2": {Replicas: 1, Primaries: 6, Index: "ad2"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestIncreaseShardToNodeRatioMore(t *testing.T) {
@@ -223,12 +227,13 @@ func TestIncreaseShardToNodeRatioMore(t *testing.T) {
 	newDesired := int32(3)
 	eds.Spec.Replicas = &newDesired
 	eds.Spec.Scaling.MaxShardsPerNode = 23
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(2), *actual.NodeReplicas)
+	require.Equal(t, DOWN, actual.ScalingDirection)
 }
 
 func TestScaleDownByRemovingIndexReplica(t *testing.T) {
@@ -241,13 +246,14 @@ func TestScaleDownByRemovingIndexReplica(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 2, Primaries: 4, Index: "ad1"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(3), *actual.NodeReplicas)
 	require.Equal(t, int32(1), actual.IndexReplicas[0].Replicas)
+	require.Equal(t, DOWN, actual.ScalingDirection)
 }
 
 func TestAtMaxIndexReplicas(t *testing.T) {
@@ -260,14 +266,14 @@ func TestAtMaxIndexReplicas(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 3, Primaries: 2, Index: "ad1"},
 	}
-	direction := UP
+	scalingHint := UP
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
-
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
@@ -282,13 +288,14 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 		"ad1": {Replicas: 5, Primaries: 10, Index: "ad1"},
 	}
 	// scaling independent of desired scaling direction
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(10), *actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, UP, actual.ScalingDirection)
 }
 
 func TestAtMaxShardsPerNode(t *testing.T) {
@@ -303,13 +310,14 @@ func TestAtMaxShardsPerNode(t *testing.T) {
 		"ad1": {Replicas: 1, Primaries: 9, Index: "ad1"},
 		"ad2": {Replicas: 0, Primaries: 5, Index: "ad2"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestAtMinIndexReplicas(t *testing.T) {
@@ -326,13 +334,14 @@ func TestAtMinIndexReplicas(t *testing.T) {
 		"ad1": {Replicas: 3, Primaries: 1, Index: "ad1"},
 		"ad2": {Replicas: 3, Primaries: 1, Index: "ad2"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestAtNoIndicesAllocatedYet(t *testing.T) {
@@ -346,13 +355,14 @@ func TestAtNoIndicesAllocatedYet(t *testing.T) {
 	eds.Spec.Scaling.MaxShardsPerNode = 24
 	eds.Spec.Scaling.MinIndexReplicas = 0
 
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestAtMinReplicas(t *testing.T) {
@@ -370,13 +380,14 @@ func TestAtMinReplicas(t *testing.T) {
 		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
 		"ad2": {Replicas: 1, Primaries: 1, Index: "ad2"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(4), *actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestAtMaxReplicas(t *testing.T) {
@@ -394,13 +405,14 @@ func TestAtMaxReplicas(t *testing.T) {
 		"ad1": {Replicas: 1, Primaries: 3, Index: "ad1"},
 		"ad2": {Replicas: 1, Primaries: 3, Index: "ad2"},
 	}
-	direction := UP
+	scalingHint := UP
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(4), *actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas))
+	require.Equal(t, NONE, actual.ScalingDirection)
 }
 
 func TestAtMaxDisk(t *testing.T) {
@@ -427,11 +439,11 @@ func TestAtMaxDisk(t *testing.T) {
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 1, Primaries: 6, Index: "ad1"},
 	}
-	direction := DOWN
+	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
 
-	actual := as.calculateScalingOperation(esIndices, esNodes, direction)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, actual.ScalingDirection, NONE)
 }
