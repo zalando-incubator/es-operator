@@ -292,7 +292,7 @@ func (r *EDSResource) UID() types.UID {
 }
 
 func (r *EDSResource) Replicas() int32 {
-	return r.Replicas()
+	return edsReplicas(r.eds)
 }
 
 func (r *EDSResource) PodTemplateSpec() *v1.PodTemplateSpec {
@@ -690,7 +690,12 @@ type ESResource struct {
 // Replicas returns the desired node replicas of an ElasticsearchDataSet
 // In case it was not specified, it will return '1'.
 func (es *ESResource) Replicas() int32 {
-	eds := es.ElasticsearchDataSet
+	return edsReplicas(es.ElasticsearchDataSet)
+}
+
+// edsReplicas returns the desired node replicas of an ElasticsearchDataSet
+// In case it was not specified, it will return '1'.
+func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 	scaling := eds.Spec.Scaling
 	if scaling == nil || !scaling.Enabled {
 		if eds.Spec.Replicas == nil {
@@ -795,7 +800,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 	name := eds.Name
 	namespace := eds.Namespace
 
-	currentReplicas := es.Replicas()
+	currentReplicas := edsReplicas(eds)
 	eds.Spec.Replicas = &currentReplicas
 	as := NewAutoScaler(es, o.metricsInterval, client)
 
