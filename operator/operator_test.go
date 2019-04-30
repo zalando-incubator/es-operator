@@ -98,6 +98,21 @@ func TestPrioritizePodsForUpdate(t *testing.T) {
 		},
 	}
 
+	stsPod2 := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:         "sts-2",
+			GenerateName: "sts-",
+			Annotations:  map[string]string{},
+			Labels: map[string]string{
+				controllerRevisionHashLabelKey: "hash",
+			},
+			Namespace: "default",
+		},
+		Spec: v1.PodSpec{
+			NodeName: "node3",
+		},
+	}
+
 	podNoNode := v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         "sts-2",
@@ -143,34 +158,45 @@ func TestPrioritizePodsForUpdate(t *testing.T) {
 		},
 	}
 
-	nodes := map[string]v1.Node{
+	priorityNodes := map[string]v1.Node{
 		"node2": {},
+	}
+
+	unschedulableNodes := map[string]v1.Node{
+		"node3": {},
 	}
 
 	pods := []v1.Pod{updatingPod}
 
-	sortedPods, err := prioritizePodsForUpdate(pods, sts, sr, nodes)
+	sortedPods, err := prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
 	assert.NoError(t, err)
 	assert.Len(t, sortedPods, 1)
 	assert.Equal(t, updatingPod, sortedPods[0])
 
 	// updating pod should be prioritized over stsPod
 	pods = []v1.Pod{stsPod, updatingPod}
-	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, nodes)
+	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
 	assert.NoError(t, err)
 	assert.Len(t, sortedPods, 2)
 	assert.Equal(t, updatingPod, sortedPods[0])
 
 	// stsPods should be sorted by ordinal number
 	pods = []v1.Pod{stsPod, stsPod0}
-	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, nodes)
+	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
 	assert.NoError(t, err)
 	assert.Len(t, sortedPods, 2)
 	assert.Equal(t, stsPod0, sortedPods[0])
 
+	// pods on unschedulable nodes should get higher priority
+	pods = []v1.Pod{stsPod, stsPod2}
+	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
+	assert.NoError(t, err)
+	assert.Len(t, sortedPods, 2)
+	assert.Equal(t, stsPod2, sortedPods[0])
+
 	// don't prioritize pods not on a node.
 	pods = []v1.Pod{podNoNode}
-	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, nodes)
+	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
 	assert.NoError(t, err)
 	assert.Len(t, sortedPods, 0)
 
@@ -191,7 +217,7 @@ func TestPrioritizePodsForUpdate(t *testing.T) {
 	}
 
 	pods = []v1.Pod{podUpToDate}
-	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, nodes)
+	sortedPods, err = prioritizePodsForUpdate(pods, sts, sr, priorityNodes, unschedulableNodes)
 	assert.NoError(t, err)
 	assert.Len(t, sortedPods, 0)
 }
