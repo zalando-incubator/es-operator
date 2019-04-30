@@ -506,12 +506,12 @@ func (o *Operator) getPodToUpdate(pods []v1.Pod, sts *appsv1.StatefulSet, sr Sta
 		return nil, nil
 	}
 
-	prioritizedNodes, cordonedNodes, err := o.getNodes()
+	prioritizedNodes, unschedulableNodes, err := o.getNodes()
 	if err != nil {
 		return nil, err
 	}
 
-	prioritizedPods, err := prioritizePodsForUpdate(pods, sts, sr, prioritizedNodes, cordonedNodes)
+	prioritizedPods, err := prioritizePodsForUpdate(pods, sts, sr, prioritizedNodes, unschedulableNodes)
 	if err != nil {
 		return nil, err
 	}
