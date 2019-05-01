@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-resty/resty"
@@ -26,6 +27,7 @@ var (
 // ESClient is a pod drainer which can drain data from Elasticsearch pods.
 type ESClient struct {
 	Endpoint *url.URL
+	mux      sync.Mutex
 }
 
 // ESIndex represent an index to be used in public APIs
@@ -200,10 +202,14 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 
 // adds the podIP to Elasticsearch exclude._ip list
 func (c *ESClient) excludePodIP(pod *v1.Pod) error {
+
+	c.mux.Lock()
+
 	podIP := pod.Status.PodIP
 
 	esSettings, err := c.getClusterSettings()
 	if err != nil {
+		c.mux.Unlock()
 		return err
 	}
 
@@ -224,9 +230,11 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 	if !foundPodIP {
 		ips = append(ips, podIP)
 		sort.Strings(ips)
-		return c.setExcludeIPs(strings.Join(ips, ","))
+		err = c.setExcludeIPs(strings.Join(ips, ","))
 	}
-	return nil
+
+	c.mux.Unlock()
+	return err
 }
 
 func (c *ESClient) setExcludeIPs(ips string) error {
@@ -292,6 +300,14 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 					}
 				}
 				c.logger().Infof("Found %d remaining shards on %s/%s (%s)", remainingShards, pod.Namespace, pod.Name, podIP)
+
+				// make sure the IP is still excluded, this could have been updated in the meantime.
+				if remainingShards > 0 {
+					err = c.excludePodIP(pod)
+					if err != nil {
+						return true, err
+					}
+				}
 				return remainingShards > 0, nil
 			},
 		).R().
