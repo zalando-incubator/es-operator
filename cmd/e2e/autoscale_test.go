@@ -54,7 +54,7 @@ func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,
-		MaxReplicas:                        3,
+		MaxReplicas:                        2,
 		MinIndexReplicas:                   0,
 		MaxIndexReplicas:                   2,
 		MinShardsPerNode:                   1,
