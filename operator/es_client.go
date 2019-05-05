@@ -447,8 +447,8 @@ func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int
 		SetHeader("Content-Type", "application/json").
 		SetBody([]byte(
 			fmt.Sprintf(
-				`{"index" : {"number_of_replicas" : "%d", "number_of_shards": "%d", 
-"routing.allocation.include.group": "%s"}}`,
+				`{"settings": {"index" : {"number_of_replicas" : "%d", "number_of_shards": "%d", 
+"routing.allocation.include.group": "%s"}}}`,
 				replicas,
 				shards,
 				groupName,
