@@ -294,7 +294,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 
 		// round down to the next non-fractioned shard-to-node ratio
-		newShardToNodeRatio := math.Ceil(float64(currentTotalShards)/math.Floor(currentShardToNodeRatio-0.00001))
+		newShardToNodeRatio := math.Ceil(float64(currentTotalShards) / math.Floor(currentShardToNodeRatio-0.00001))
 		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(newShardToNodeRatio))
 
 		return &ScalingOperation{
