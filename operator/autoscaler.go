@@ -293,7 +293,9 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			}
 		}
 
-		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(currentTotalShards)/float64(currentShardToNodeRatio-1))))
+		// round down to the next non-fractioned shard-to-node ratio
+		newShardToNodeRatio := math.Ceil(float64(currentTotalShards)/math.Floor(currentShardToNodeRatio-0.00001))
+		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(newShardToNodeRatio))
 
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
@@ -323,7 +325,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 		// increase shard-to-node ratio, and scale down by at least one
 		newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec,
-			int32(math.Min(float64(currentDesiredNodeReplicas)-float64(1), math.Ceil(float64(currentTotalShards)/float64(currentShardToNodeRatio+1)))))
+			int32(math.Min(float64(currentDesiredNodeReplicas)-float64(1), math.Ceil(float64(currentTotalShards)/math.Ceil(currentShardToNodeRatio+0.00001)))))
 		ratio := float64(newTotalShards) / float64(newDesiredNodeReplicas)
 		if ratio >= float64(scalingSpec.MaxShardsPerNode) {
 			return noopScalingOperation(fmt.Sprintf("Scaling would violate the shard-to-node maximum (%.2f/%d).", ratio, scalingSpec.MaxShardsPerNode))
