@@ -56,7 +56,7 @@ func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
 		MinReplicas:                        1,
 		MaxReplicas:                        2,
 		MinIndexReplicas:                   0,
-		MaxIndexReplicas:                   2,
+		MaxIndexReplicas:                   1,
 		MinShardsPerNode:                   1,
 		MaxShardsPerNode:                   1,
 		ScaleUpCPUBoundary:                 50,
