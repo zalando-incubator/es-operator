@@ -38,10 +38,10 @@ spec:
       - name: elasticsearch
         resources:
           requests:
-            memory: 600Mi
+            memory: 512Mi
             cpu: 100m
           limits:
-            memory: 600Mi
+            memory: 512Mi
             cpu: 100m
         securityContext:
           runAsUser: 1000
@@ -52,7 +52,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xmx300m -Xms300m"
+          value: "-Xms256m -Xmx256m"
         - name: node.master
           value: "true"
         - name: node.data
@@ -69,17 +69,17 @@ spec:
         - containerPort: 9300
           name: es-transport
         volumeMounts:
-        - name: es-data
+        - name: data
           mountPath: /usr/share/elasticsearch/data
-        - name: es-config
+        - name: config
           mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
           subPath: elasticsearch.yml
       volumes:
-        - name: es-data
-          emptyDir: {}
-        - name: es-config
-          configMap:
-            name: es6-config
-            items:
-              - key: elasticsearch.yml
-                path: elasticsearch.yml
+      - name: data
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: es6-config
+          items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml

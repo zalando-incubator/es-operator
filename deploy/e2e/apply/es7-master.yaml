@@ -69,17 +69,17 @@ spec:
         - containerPort: 9300
           name: es-transport
         volumeMounts:
-        - name: es-data
+        - name: data
           mountPath: /usr/share/elasticsearch/data
-        - name: es-config
+        - name: config
           mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
           subPath: elasticsearch.yml
       volumes:
-        - name: es-data
-          emptyDir: {}
-        - name: es-config
-          configMap:
-            name: es7-config
-            items:
-              - key: elasticsearch.yml
-                path: elasticsearch.yml
+      - name: data
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: es7-config
+          items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml
