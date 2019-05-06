@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: es-master
+  name: es7-master
 spec:
   replicas: 1
-  serviceName: es-master
+  serviceName: es7-master
   selector:
     matchLabels:
-      application: elasticsearch
+      application: es7
       role: master
   template:
     metadata:
       labels:
-        application: elasticsearch
+        application: es7
         role: master
     spec:
       serviceAccountName: operator
@@ -45,7 +45,7 @@ spec:
             cpu: 100m
         securityContext:
           runAsUser: 1000
-        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
+        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.1"
         env:
         - name: "node.name"
           valueFrom:
@@ -71,15 +71,15 @@ spec:
         volumeMounts:
         - name: es-data
           mountPath: /usr/share/elasticsearch/data
-        - name: elasticsearch-config
+        - name: es-config
           mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
           subPath: elasticsearch.yml
       volumes:
         - name: es-data
           emptyDir: {}
-        - name: elasticsearch-config
+        - name: es-config
           configMap:
-            name: es-config
+            name: es7-config
             items:
               - key: elasticsearch.yml
                 path: elasticsearch.yml

@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	edsPodSpec = func(nodeGroup string) v1.PodSpec {
+	edsPodSpec = func(nodeGroup, version, configMap string) v1.PodSpec {
 		return v1.PodSpec{
 			ServiceAccountName: "operator",
 			InitContainers: []v1.Container{
@@ -48,8 +48,9 @@ var (
 			},
 			Containers: []v1.Container{
 				{
-					Name:  "elasticsearch",
-					Image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0",
+					Name: "elasticsearch",
+					// gets replaced with desired version
+					Image: fmt.Sprintf("docker.elastic.co/elasticsearch/elasticsearch-oss:%s", version),
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: 9200,
@@ -60,13 +61,9 @@ var (
 					},
 					Env: []v1.EnvVar{
 						{Name: "ES_JAVA_OPTS", Value: "-Xms256m -Xmx256m"},
-						{Name: "cluster.name", Value: "es-operator-e2e"},
 						{Name: "node.master", Value: "false"},
 						{Name: "node.data", Value: "true"},
 						{Name: "node.ingest", Value: "true"},
-						{Name: "network.host", Value: "0.0.0.0"},
-						{Name: "discovery.zen.minimum_master_nodes", Value: "1"},
-						{Name: "discovery.zen.ping.unicast.hosts", Value: "es-master"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
@@ -99,7 +96,7 @@ var (
 							MountPath: "/usr/share/elasticsearch/data",
 						},
 						{
-							Name:      "elasticsearch-config",
+							Name:      "config",
 							MountPath: "/usr/share/elasticsearch/config/elasticsearch.yml",
 							SubPath:   "elasticsearch.yml",
 						},
@@ -117,9 +114,12 @@ var (
 					},
 				},
 				{
-					Name: "elasticsearch-config",
+					Name: "config",
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: configMap,
+							},
 							Items: []v1.KeyToPath{
 								{
 									Key:  "elasticsearch.yml",
@@ -132,8 +132,8 @@ var (
 			},
 		}
 	}
-	edsPodSpecCPULoadContainer = func(nodeGroup string) v1.PodSpec {
-		podSpec := edsPodSpec(nodeGroup)
+	edsPodSpecCPULoadContainer = func(nodeGroup, version, configMap string) v1.PodSpec {
+		podSpec := edsPodSpec(nodeGroup, version, configMap)
 		podSpec.Containers = append(podSpec.Containers, v1.Container{
 			Name: "stress-ng",
 			// https://hub.docker.com/r/alexeiled/stress-ng/
@@ -302,8 +302,7 @@ func createEDS(name string, spec zv1.ElasticsearchDataSetSpec) error {
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"es-operator.zalando.org/operator":               operatorId,
-				"es-operator.zalando.org/elasticsearch-endpoint": "http://es-operator-e2e:9200/",
+				"es-operator.zalando.org/operator": operatorId,
 			},
 		},
 		Spec: *myspec,

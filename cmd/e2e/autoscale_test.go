@@ -11,7 +11,7 @@ import (
 func TestEDSCPUAutoscaleUP(t *testing.T) {
 	t.Parallel()
 	edsName := "cpu-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, "6.7.1", "es6-config")
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,
@@ -29,7 +29,7 @@ func TestEDSCPUAutoscaleUP(t *testing.T) {
 		DiskUsagePercentScaledownWatermark: 0,
 	})
 	edsSpec := edsSpecFactory.Create()
-	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName)
+	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName, "6.7.1", "es6-config")
 
 	err := createEDS(edsName, edsSpec)
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestEDSCPUAutoscaleUP(t *testing.T) {
 func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
 	t.Parallel()
 	edsName := "shard-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, "6.7.1", "es6-config")
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,

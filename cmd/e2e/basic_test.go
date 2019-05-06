@@ -13,20 +13,29 @@ import (
 )
 
 type TestEDSSpecFactory struct {
-	edsName  string
-	replicas int32
-	scaling  *zv1.ElasticsearchDataSetScaling
+	edsName   string
+	replicas  int32
+	scaling   *zv1.ElasticsearchDataSetScaling
+	version   string
+	configMap string
 }
 
-func NewTestEDSSpecFactory(edsName string) *TestEDSSpecFactory {
+func NewTestEDSSpecFactory(edsName, version, configMap string) *TestEDSSpecFactory {
 	return &TestEDSSpecFactory{
-		edsName:  edsName,
-		replicas: 1,
+		edsName:   edsName,
+		version:   version,
+		configMap: configMap,
+		replicas:  1,
 	}
 }
 
 func (f *TestEDSSpecFactory) Replicas(replicas int32) *TestEDSSpecFactory {
 	f.replicas = replicas
+	return f
+}
+
+func (f *TestEDSSpecFactory) ElasticsearchVersion(version string) *TestEDSSpecFactory {
+	f.version = version
 	return f
 }
 
@@ -46,15 +55,15 @@ func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 					"component":   "elasticsearch",
 				},
 			},
-			Spec: edsPodSpec(f.edsName),
+			Spec: edsPodSpec(f.edsName, f.version, f.configMap),
 		},
 	}
 
 	return result
 }
 
-func testEDSCreate(t *testing.T, edsName string) zv1.ElasticsearchDataSetSpec {
-	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+func testEDSCreate(t *testing.T, edsName, version, configMap string) zv1.ElasticsearchDataSetSpec {
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpec := edsSpecFactory.Create()
 
 	err := createEDS(edsName, edsSpec)
@@ -114,10 +123,18 @@ func mergeLabels(labelsSlice ...map[string]string) map[string]string {
 	return newLabels
 }
 
-func TestEDSCreateBasic(t *testing.T) {
+func TestEDSCreateBasic6(t *testing.T) {
 	t.Parallel()
-	edsName := "basic"
-	edsSpec := testEDSCreate(t, edsName)
+	edsName := "basic6"
+	edsSpec := testEDSCreate(t, edsName, "6.7.1", "es6-config")
+	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
+	deleteEDS(edsName)
+}
+
+func TestEDSCreateBasic7(t *testing.T) {
+	t.Parallel()
+	edsName := "basic7"
+	edsSpec := testEDSCreate(t, edsName, "7.0.1", "es7-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	deleteEDS(edsName)
 }

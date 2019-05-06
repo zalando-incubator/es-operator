@@ -8,6 +8,10 @@
 
 This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining and offering auto-scaling capabilities for Elasticsearch data nodes, rather than just abstracting manifest definitions.
 
+## Compatibility
+
+The ES-Operator has been tested with Elasticsearch 6.x and 7.0.
+
 ## How it works
 
 The operator works by managing custom resources called `ElasticsearchDataSets` (EDS). They

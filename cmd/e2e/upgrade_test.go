@@ -9,9 +9,10 @@ import (
 func TestEDSUpgradingEDS(t *testing.T) {
 	t.Parallel()
 	edsName := "upgrade"
-	edsSpec := testEDSCreate(t, edsName)
+	edsSpec := testEDSCreate(t, edsName, "6.7.1", "es6-config")
 	eds := verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
-	eds.Spec.Template.Labels["new-label"] = "hello"
+	// this could become a test for a major version upgrade in the future.
+	eds.Spec.Template.Spec.Containers[0].Image = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.7.2"
 
 	var err error
 	eds, err = waitForEDS(t, edsName)
