@@ -8,10 +8,15 @@ import (
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 )
 
-func TestEDSCPUAutoscaleUP(t *testing.T) {
+// we can  can be tested on ES6 only.
+func TestEDSCPUAutoscaleUP6(t *testing.T) {
 	t.Parallel()
+	runTestEDSCPUAutoScaleUP(t, "6.7.1", "es6-config")
+}
+
+func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 	edsName := "cpu-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName, "6.7.1", "es6-config")
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,
@@ -47,10 +52,19 @@ func TestEDSCPUAutoscaleUP(t *testing.T) {
 	deleteEDS(edsName)
 }
 
-func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
+func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
 	t.Parallel()
+	runTestEDSAutoscaleUPOnShardCount(t, "6.7.1", "es6-config")
+}
+
+func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
+	t.Parallel()
+	runTestEDSAutoscaleUPOnShardCount(t, "7.0.1", "es7-config")
+}
+
+func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {
 	edsName := "shard-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName, "6.7.1", "es6-config")
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,

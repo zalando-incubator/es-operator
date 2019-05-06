@@ -34,11 +34,6 @@ func (f *TestEDSSpecFactory) Replicas(replicas int32) *TestEDSSpecFactory {
 	return f
 }
 
-func (f *TestEDSSpecFactory) ElasticsearchVersion(version string) *TestEDSSpecFactory {
-	f.version = version
-	return f
-}
-
 func (f *TestEDSSpecFactory) Scaling(scaling *zv1.ElasticsearchDataSetScaling) *TestEDSSpecFactory {
 	f.scaling = scaling
 	return f
