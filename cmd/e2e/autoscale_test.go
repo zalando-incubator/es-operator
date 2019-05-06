@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cenk/backoff"
@@ -63,7 +64,7 @@ func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
 }
 
 func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {
-	edsName := "shard-autoscale-up"
+	edsName := "shard-autoscale-up-" + strings.Replace(version, ".", "", -1)
 	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
