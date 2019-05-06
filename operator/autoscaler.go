@@ -283,7 +283,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 				})
 			}
 			if newTotalShards != currentTotalShards {
-				newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(newTotalShards)/float64(currentShardToNodeRatio))))
+				newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
 				return &ScalingOperation{
 					Description:      fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", currentShardToNodeRatio),
 					NodeReplicas:     &newDesiredNodeReplicas,
@@ -294,8 +294,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 
 		// round down to the next non-fractioned shard-to-node ratio
-		newShardToNodeRatio := math.Ceil(float64(currentTotalShards) / math.Floor(currentShardToNodeRatio-0.00001))
-		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(newShardToNodeRatio))
+		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
 
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
@@ -315,7 +314,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			}
 		}
 		if newTotalShards != currentTotalShards {
-			newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(newTotalShards)/float64(currentShardToNodeRatio))))
+			newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
 			return &ScalingOperation{
 				ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 				NodeReplicas:     &newDesiredNodeReplicas,
@@ -324,8 +323,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			}
 		}
 		// increase shard-to-node ratio, and scale down by at least one
-		newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec,
-			int32(math.Min(float64(currentDesiredNodeReplicas)-float64(1), math.Ceil(float64(currentTotalShards)/math.Ceil(currentShardToNodeRatio+0.00001)))))
+		newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
 		ratio := float64(newTotalShards) / float64(newDesiredNodeReplicas)
 		if ratio >= float64(scalingSpec.MaxShardsPerNode) {
 			return noopScalingOperation(fmt.Sprintf("Scaling would violate the shard-to-node maximum (%.2f/%d).", ratio, scalingSpec.MaxShardsPerNode))
@@ -338,6 +336,28 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 	}
 	return noopScalingOperation("Nothing to do")
+}
+
+func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards int32) int32 {
+	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	return int32(math.Ceil(float64(newTotalShards) / float64(currentShardToNodeRatio)))
+}
+
+func calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards int32) int32 {
+	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	newDesiredNodes := int32(math.Min(float64(currentDesiredNodeReplicas)-float64(1), math.Ceil(float64(currentTotalShards)/math.Ceil(currentShardToNodeRatio+0.00001))))
+	if newDesiredNodes <= 1 {
+		return 1
+	}
+	return newDesiredNodes
+}
+
+func calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards int32) int32 {
+	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	if currentShardToNodeRatio <= 1 {
+		return currentTotalShards
+	}
+	return int32(math.Ceil(float64(currentTotalShards) / math.Floor(currentShardToNodeRatio-0.00001)))
 }
 
 func (as *AutoScaler) calculateScalingDirection(oldNodeReplicas, newNodeReplicas int32) ScalingDirection {

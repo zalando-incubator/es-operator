@@ -457,6 +457,17 @@ func TestAtMaxDisk(t *testing.T) {
 	require.Equal(t, actual.ScalingDirection, NONE, actual.Description)
 }
 
+func TestEDSWithoutReplicas(t *testing.T) {
+	eds := &zv1.ElasticsearchDataSet{}
+	scalingHint := UP
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(map[string]ESIndex{}, make([]ESNode, 0), scalingHint)
+	require.Nil(t, actual.NodeReplicas, actual.Description)
+	require.Equal(t, actual.ScalingDirection, NONE, actual.Description)
+}
+
 func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 	r := int32(initialReplicas)
 	return &zv1.ElasticsearchDataSet{
@@ -475,6 +486,23 @@ func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 			Replicas: &r,
 		},
 	}
+}
+
+func TestCalculateIncreasedNodes(t *testing.T) {
+	require.Equal(t, 64, int(calculateIncreasedNodes(32, 64)))
+	require.Equal(t, 64, int(calculateIncreasedNodes(64, 64)))
+	require.Equal(t, 32, int(calculateIncreasedNodes(31, 64)))
+}
+
+func TestCalculateDecreaseNodes(t *testing.T) {
+	require.Equal(t, 16, int(calculateDecreasedNodes(32, 32)))
+	require.Equal(t, 16, int(calculateDecreasedNodes(17, 32)))
+	require.Equal(t, 1, int(calculateDecreasedNodes(1, 32)))
+}
+
+func TestCalculateNodesWithSameShardToNodeRatio(t *testing.T) {
+	require.Equal(t, 12, int(calculateNodesWithSameShardToNodeRatio(16, 32, 24)))
+	require.Equal(t, 17, int(calculateNodesWithSameShardToNodeRatio(17, 32, 32)))
 }
 
 func TestGetManagedIndices(t *testing.T) {
@@ -534,6 +562,33 @@ func TestGetManagedIndices(t *testing.T) {
 	require.Equal(t, 2, len(actual))
 	require.Equal(t, "a", actual["a"].Index)
 	require.Equal(t, "c", actual["c"].Index)
+}
+
+func TestGetManagedNodes(t *testing.T) {
+	pods := []v1.Pod{
+		{
+			Status: v1.PodStatus{
+				PodIP: "1.2.3.4",
+			},
+		},
+		{
+			Status: v1.PodStatus{},
+		},
+	}
+	nodes := []ESNode{
+		{
+			IP: "1.2.3.4",
+		},
+		{
+			IP: "1.2.3.5",
+		},
+	}
+
+	as := systemUnderTest(edsTestFixture(1), nil, pods)
+	actual := as.getManagedNodes(pods, nodes)
+
+	require.Equal(t, 1, len(actual))
+	require.Equal(t, "1.2.3.4", actual[0].IP)
 }
 
 func systemUnderTest(eds *zv1.ElasticsearchDataSet, metricSet *zv1.ElasticsearchMetricSet, pods []v1.Pod) *AutoScaler {
