@@ -3,8 +3,11 @@ kind: Service
 metadata:
   name: es-master
 spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
   selector:
-    application: es-master
+    application: elasticsearch
+    role: master
   ports:
   - name: transport
     port: 9300

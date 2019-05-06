@@ -98,6 +98,11 @@ var (
 							Name:      "data",
 							MountPath: "/usr/share/elasticsearch/data",
 						},
+						{
+							Name:      "elasticsearch-config",
+							MountPath: "/usr/share/elasticsearch/config/elasticsearch.yml",
+							SubPath:   "elasticsearch.yml",
+						},
 					},
 				},
 			},
@@ -108,6 +113,19 @@ var (
 					VolumeSource: v1.VolumeSource{
 						EmptyDir: &v1.EmptyDirVolumeSource{
 							Medium: v1.StorageMediumMemory,
+						},
+					},
+				},
+				{
+					Name: "elasticsearch-config",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							Items: []v1.KeyToPath{
+								{
+									Key:  "elasticsearch.yml",
+									Path: "elasticsearch.yml",
+								},
+							},
 						},
 					},
 				},

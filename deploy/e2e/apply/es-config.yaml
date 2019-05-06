@@ -7,5 +7,5 @@ data:
     cluster.name: es-operator-e2e
     network.host: "0.0.0.0"
     bootstrap.memory_lock: false
-    discovery.zen.ping.unicast.hosts: es-master
-    discovery.zen.minimum_master_nodes: 1
+    discovery.seed_hosts: [es-master]
+    cluster.initial_master_nodes: [es-master-0]

@@ -1,27 +1,26 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: es-master
 spec:
-  minReadySeconds: 60
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
+  replicas: 1
+  serviceName: es-master
   selector:
     matchLabels:
-      application: es-master
-  replicas: 1
+      application: elasticsearch
+      role: master
   template:
     metadata:
       labels:
-        application: es-master
+        application: elasticsearch
+        role: master
     spec:
       serviceAccountName: operator
+      securityContext:
+        fsGroup: 1000
       initContainers:
       - name: init-sysctl
-        image: "busybox:1.30"
+        image: busybox:1.30
         command:
         - sysctl
         - -w
@@ -37,31 +36,38 @@ spec:
           privileged: true
       containers:
       - name: elasticsearch
+        resources:
+          requests:
+            memory: 600Mi
+            cpu: 100m
+          limits:
+            memory: 600Mi
+            cpu: 100m
+        securityContext:
+          runAsUser: 1000
         image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
         env:
-        - name: ES_JAVA_OPTS
-          value: "-Xms256m -Xmx256m"
+        - name: "node.name"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "ES_JAVA_OPTS"
+          value: "-Xmx400m -Xms400m"
         - name: node.master
           value: "true"
         - name: node.data
           value: "false"
-        resources:
-          requests:
-            memory: 512Mi
-            cpu: 100m
-          limits:
-            memory: 512Mi
-            cpu: 100m
-        ports:
-        - containerPort: 9300
-          name: transport
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            scheme: HTTP
+            path: /_cluster/health?local=true
             port: 9200
           initialDelaySeconds: 20
-        livenessProbe:
-          tcpSocket:
-            port: transport
+        ports:
+        - containerPort: 9200
+          name: es-http
+        - containerPort: 9300
+          name: es-transport
         volumeMounts:
         - name: es-data
           mountPath: /usr/share/elasticsearch/data
@@ -69,11 +75,11 @@ spec:
           mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
           subPath: elasticsearch.yml
       volumes:
-      - name: es-data
-        emptyDir: {}
-      - name: elasticsearch-config
-        configMap:
-          name: es-config
-          items:
-          - key: elasticsearch.yml
-            path: elasticsearch.yml
+        - name: es-data
+          emptyDir: {}
+        - name: elasticsearch-config
+          configMap:
+            name: es-config
+            items:
+              - key: elasticsearch.yml
+                path: elasticsearch.yml
