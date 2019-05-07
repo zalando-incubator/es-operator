@@ -185,7 +185,9 @@ func (a *awaiter) await() error {
 	for {
 		retry, err := a.poll()
 		if err != nil {
-			a.t.Logf("%v", err)
+			a.t.Logf("Poll err: %v", err)
+			a.t.Logf("Retry? %v", retry)
+			a.t.Logf("Deadline reached? %v", ! time.Now().Before(deadline))
 			if retry && time.Now().Before(deadline) {
 				time.Sleep(10 * time.Second)
 				continue
@@ -264,11 +266,13 @@ func waitForEDSCondition(t *testing.T, name string, conditions ...func(eds *zv1.
 	return newAwaiter(t, fmt.Sprintf("eds %s to reach desired condition", name)).withPoll(func() (retry bool, err error) {
 		eds, err := edsInterface().Get(name, metav1.GetOptions{})
 		if err != nil {
+			t.Logf("eds error1: %v", err)
 			return false, err
 		}
 		for _, condition := range conditions {
 			err := condition(eds)
 			if err != nil {
+				t.Logf("eds error2: %v", err)
 				return true, err
 			}
 		}
@@ -280,11 +284,13 @@ func waitForSTSCondition(t *testing.T, stsName string, conditions ...func(sts *a
 	return newAwaiter(t, fmt.Sprintf("sts %s to reach desired condition", stsName)).withPoll(func() (retry bool, err error) {
 		sts, err := statefulSetInterface().Get(stsName, metav1.GetOptions{})
 		if err != nil {
+			t.Logf("sts error1: %v", err)
 			return false, err
 		}
 		for _, condition := range conditions {
 			err := condition(sts)
 			if err != nil {
+				t.Logf("sts error2: %v", err)
 				return true, err
 			}
 		}
