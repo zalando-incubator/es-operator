@@ -185,8 +185,8 @@ func (a *awaiter) await() error {
 	for {
 		retry, err := a.poll()
 		if err != nil {
+			a.t.Logf("%v", err)
 			if retry && time.Now().Before(deadline) {
-				a.t.Logf("%v", err)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -206,6 +206,7 @@ func resourceCreated(t *testing.T, kind string, name string, k8sInterface interf
 		})
 		err := result[1].Interface()
 		if err != nil {
+			t.Logf("%v", err)
 			return apiErrors.IsNotFound(err.(error)), err.(error)
 		}
 		return false, nil

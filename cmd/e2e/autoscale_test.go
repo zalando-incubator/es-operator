@@ -16,7 +16,7 @@ func TestEDSCPUAutoscaleUP6(t *testing.T) {
 }
 
 func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
-	edsName := "cpu-autoscale-up"
+	edsName := "cpu-autoscale-up-" + strings.Replace(version, ".", "", -1)
 	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
