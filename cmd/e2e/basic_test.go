@@ -80,7 +80,7 @@ func verifyEDS(t *testing.T, edsName string, edsSpec zv1.ElasticsearchDataSetSpe
 	// Verify statefulset
 	sts, err := waitForStatefulSet(t, edsName)
 	require.NoError(t, err)
-	require.EqualValues(t, replicas, sts.Spec.Replicas)
+	require.Equal(t, *replicas, *sts.Spec.Replicas)
 
 	// Verify service
 	service, err := waitForService(t, eds.Name)
