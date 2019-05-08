@@ -43,6 +43,7 @@ var (
 					},
 					SecurityContext: &v1.SecurityContext{
 						Privileged: pbool(true),
+						RunAsUser:  pint64(0),
 					},
 				},
 			},
@@ -84,11 +85,6 @@ var (
 								Scheme: v1.URISchemeHTTP,
 							},
 						},
-						InitialDelaySeconds: 10,
-						TimeoutSeconds:      5,
-						PeriodSeconds:       10,
-						SuccessThreshold:    3,
-						FailureThreshold:    3,
 					},
 					VolumeMounts: []v1.VolumeMount{
 						{
