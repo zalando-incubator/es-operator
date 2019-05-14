@@ -35,12 +35,12 @@ func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 		DiskUsagePercentScaledownWatermark: 0,
 	})
 	edsSpec := edsSpecFactory.Create()
-	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName, "6.7.1", "es6-config")
+	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName, version, configMap)
 
 	err := createEDS(edsName, edsSpec)
 	require.NoError(t, err)
 
-	esClient, err := setupESClient("http://" + edsName + ":9200")
+	esClient, err := setupESClient("http://"+edsName+":9200", version)
 	require.NoError(t, err)
 	createIndex := func() error {
 		return esClient.CreateIndex(edsName, edsName, 1, 0)
@@ -87,7 +87,7 @@ func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) 
 	err := createEDS(edsName, edsSpec)
 	require.NoError(t, err)
 
-	esClient, err := setupESClient("http://" + edsName + ":9200")
+	esClient, err := setupESClient("http://"+edsName+":9200", version)
 	require.NoError(t, err)
 	createIndex := func() error {
 		return esClient.CreateIndex(edsName, edsName, 2, 0)
