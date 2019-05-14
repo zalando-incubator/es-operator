@@ -27,6 +27,7 @@ spec:
         - --operator-id={{{OPERATOR_ID}}}
         - --interval=30s
         - --namespace={{{NAMESPACE}}}
+        - --debug
         resources:
           limits:
             cpu: 50m

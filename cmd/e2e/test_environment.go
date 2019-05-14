@@ -72,8 +72,17 @@ func requiredEnvar(envar string) string {
 	return namespace
 }
 
-func setupESClient(defaultServiceEndpoint string) (*operator.ESClient, error) {
-	serviceEndpoint := os.Getenv("ES_SERVICE_ENDPOINT")
+func setupESClient(defaultServiceEndpoint, version string) (*operator.ESClient, error) {
+	var envSuffix string
+	if len(version) > 0 {
+		switch version[0] {
+		case '7':
+			envSuffix = "_ES7"
+		case '6':
+			envSuffix = "_ES6"
+		}
+	}
+	serviceEndpoint := os.Getenv("ES_SERVICE_ENDPOINT" + envSuffix)
 	if serviceEndpoint == "" {
 		serviceEndpoint = defaultServiceEndpoint
 	}

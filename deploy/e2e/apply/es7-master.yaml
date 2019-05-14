@@ -1,38 +1,18 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: operator
-  namespace: es-operator-demo
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: es-config
-  namespace: es-operator-demo
-data:
-  elasticsearch.yml: |
-    cluster.name: es-cluster
-    network.host: "0.0.0.0"
-    bootstrap.memory_lock: false
-    discovery.seed_hosts: [es-master]
-    cluster.initial_master_nodes: [es-master-0]
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: es-master
-  namespace: es-operator-demo
+  name: es7-master
 spec:
   replicas: 1
-  serviceName: es-master
+  serviceName: es7-master
   selector:
     matchLabels:
-      application: elasticsearch
+      application: es7
       role: master
   template:
     metadata:
       labels:
-        application: elasticsearch
+        application: es7
         role: master
     spec:
       serviceAccountName: operator
@@ -54,6 +34,7 @@ spec:
             cpu: 50m
         securityContext:
           privileged: true
+          runAsUser: 0
       containers:
       - name: elasticsearch
         resources:
@@ -63,7 +44,7 @@ spec:
           limits:
             memory: 600Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
+        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.1"
         env:
         - name: "node.name"
           valueFrom:
@@ -80,52 +61,23 @@ spec:
             scheme: HTTP
             path: /_cluster/health?local=true
             port: 9200
-          initialDelaySeconds: 20
         ports:
         - containerPort: 9200
           name: es-http
         - containerPort: 9300
           name: es-transport
         volumeMounts:
-        - name: es-data
+        - name: data
           mountPath: /usr/share/elasticsearch/data
-        - name: elasticsearch-config
+        - name: config
           mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
           subPath: elasticsearch.yml
       volumes:
-        - name: es-data
-          emptyDir: {}
-        - name: elasticsearch-config
-          configMap:
-            name: es-config
-            items:
-              - key: elasticsearch.yml
-                path: elasticsearch.yml
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: es-http
-  namespace: es-operator-demo
-spec:
-  selector:
-    application: elasticsearch
-  ports:
-  - name: http
-    port: 9200
-    targetPort: 9200
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: es-master
-  namespace: es-operator-demo
-spec:
-  clusterIP: None
-  publishNotReadyAddresses: true
-  selector:
-    application: elasticsearch
-    role: master
-  ports:
-  - name: transport
-    port: 9300
+      - name: data
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: es7-config
+          items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml

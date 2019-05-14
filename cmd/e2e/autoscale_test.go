@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cenk/backoff"
@@ -8,10 +9,15 @@ import (
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 )
 
-func TestEDSCPUAutoscaleUP(t *testing.T) {
+// we can  can be tested on ES6 only.
+func TestEDSCPUAutoscaleUP6(t *testing.T) {
 	t.Parallel()
-	edsName := "cpu-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	runTestEDSCPUAutoScaleUP(t, "6.7.1", "es6-config")
+}
+
+func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
+	edsName := "cpu-autoscale-up-" + strings.Replace(version, ".", "", -1)
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,
@@ -29,12 +35,12 @@ func TestEDSCPUAutoscaleUP(t *testing.T) {
 		DiskUsagePercentScaledownWatermark: 0,
 	})
 	edsSpec := edsSpecFactory.Create()
-	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName)
+	edsSpec.Template.Spec = edsPodSpecCPULoadContainer(edsName, version, configMap)
 
 	err := createEDS(edsName, edsSpec)
 	require.NoError(t, err)
 
-	esClient, err := setupESClient("http://" + edsName + ":9200")
+	esClient, err := setupESClient("http://"+edsName+":9200", version)
 	require.NoError(t, err)
 	createIndex := func() error {
 		return esClient.CreateIndex(edsName, edsName, 1, 0)
@@ -47,10 +53,19 @@ func TestEDSCPUAutoscaleUP(t *testing.T) {
 	deleteEDS(edsName)
 }
 
-func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
+func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
 	t.Parallel()
-	edsName := "shard-autoscale-up"
-	edsSpecFactory := NewTestEDSSpecFactory(edsName)
+	runTestEDSAutoscaleUPOnShardCount(t, "6.7.1", "es6-config")
+}
+
+func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
+	t.Parallel()
+	runTestEDSAutoscaleUPOnShardCount(t, "7.0.1", "es7-config")
+}
+
+func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {
+	edsName := "shard-autoscale-up-" + strings.Replace(version, ".", "", -1)
+	edsSpecFactory := NewTestEDSSpecFactory(edsName, version, configMap)
 	edsSpecFactory.Scaling(&zv1.ElasticsearchDataSetScaling{
 		Enabled:                            true,
 		MinReplicas:                        1,
@@ -72,7 +87,7 @@ func TestEDSAutoscaleUPOnShardCount(t *testing.T) {
 	err := createEDS(edsName, edsSpec)
 	require.NoError(t, err)
 
-	esClient, err := setupESClient("http://" + edsName + ":9200")
+	esClient, err := setupESClient("http://"+edsName+":9200", version)
 	require.NoError(t, err)
 	createIndex := func() error {
 		return esClient.CreateIndex(edsName, edsName, 2, 0)

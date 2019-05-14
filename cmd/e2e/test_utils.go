@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	edsPodSpec = func(nodeGroup string) v1.PodSpec {
+	edsPodSpec = func(nodeGroup, version, configMap string) v1.PodSpec {
 		return v1.PodSpec{
 			ServiceAccountName: "operator",
 			InitContainers: []v1.Container{
@@ -43,13 +43,15 @@ var (
 					},
 					SecurityContext: &v1.SecurityContext{
 						Privileged: pbool(true),
+						RunAsUser:  pint64(0),
 					},
 				},
 			},
 			Containers: []v1.Container{
 				{
-					Name:  "elasticsearch",
-					Image: "docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1",
+					Name: "elasticsearch",
+					// gets replaced with desired version
+					Image: fmt.Sprintf("docker.elastic.co/elasticsearch/elasticsearch-oss:%s", version),
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: 9200,
@@ -60,13 +62,9 @@ var (
 					},
 					Env: []v1.EnvVar{
 						{Name: "ES_JAVA_OPTS", Value: "-Xms256m -Xmx256m"},
-						{Name: "cluster.name", Value: "es-operator-e2e"},
 						{Name: "node.master", Value: "false"},
 						{Name: "node.data", Value: "true"},
 						{Name: "node.ingest", Value: "true"},
-						{Name: "network.host", Value: "0.0.0.0"},
-						{Name: "discovery.zen.minimum_master_nodes", Value: "1"},
-						{Name: "discovery.zen.ping.unicast.hosts", Value: "es-master"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
@@ -87,16 +85,16 @@ var (
 								Scheme: v1.URISchemeHTTP,
 							},
 						},
-						InitialDelaySeconds: 10,
-						TimeoutSeconds:      5,
-						PeriodSeconds:       10,
-						SuccessThreshold:    3,
-						FailureThreshold:    3,
 					},
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:      "data",
 							MountPath: "/usr/share/elasticsearch/data",
+						},
+						{
+							Name:      "config",
+							MountPath: "/usr/share/elasticsearch/config/elasticsearch.yml",
+							SubPath:   "elasticsearch.yml",
 						},
 					},
 				},
@@ -111,11 +109,27 @@ var (
 						},
 					},
 				},
+				{
+					Name: "config",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: configMap,
+							},
+							Items: []v1.KeyToPath{
+								{
+									Key:  "elasticsearch.yml",
+									Path: "elasticsearch.yml",
+								},
+							},
+						},
+					},
+				},
 			},
 		}
 	}
-	edsPodSpecCPULoadContainer = func(nodeGroup string) v1.PodSpec {
-		podSpec := edsPodSpec(nodeGroup)
+	edsPodSpecCPULoadContainer = func(nodeGroup, version, configMap string) v1.PodSpec {
+		podSpec := edsPodSpec(nodeGroup, version, configMap)
 		podSpec.Containers = append(podSpec.Containers, v1.Container{
 			Name: "stress-ng",
 			// https://hub.docker.com/r/alexeiled/stress-ng/
@@ -123,11 +137,11 @@ var (
 			Args:  []string{"--cpu=1", "--cpu-load=10"},
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("10Mi"),
+					v1.ResourceMemory: resource.MustParse("50Mi"),
 					v1.ResourceCPU:    resource.MustParse("100m"),
 				},
 				Requests: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("10Mi"),
+					v1.ResourceMemory: resource.MustParse("50Mi"),
 					v1.ResourceCPU:    resource.MustParse("100m"),
 				},
 			},
@@ -167,9 +181,9 @@ func (a *awaiter) await() error {
 	for {
 		retry, err := a.poll()
 		if err != nil {
+			a.t.Logf("%v", err)
 			if retry && time.Now().Before(deadline) {
-				a.t.Logf("%v", err)
-				time.Sleep(10 * time.Second)
+				time.Sleep(30 * time.Second)
 				continue
 			}
 			return err
@@ -188,6 +202,7 @@ func resourceCreated(t *testing.T, kind string, name string, k8sInterface interf
 		})
 		err := result[1].Interface()
 		if err != nil {
+			t.Logf("%v", err)
 			return apiErrors.IsNotFound(err.(error)), err.(error)
 		}
 		return false, nil
@@ -284,8 +299,7 @@ func createEDS(name string, spec zv1.ElasticsearchDataSetSpec) error {
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"es-operator.zalando.org/operator":               operatorId,
-				"es-operator.zalando.org/elasticsearch-endpoint": "http://es-operator-e2e:9200/",
+				"es-operator.zalando.org/operator": operatorId,
 			},
 		},
 		Spec: *myspec,

@@ -81,7 +81,7 @@ We differentiated the stacks using an Elasticsearch node tag called `group`. It 
 
  ```
 curl -XPUT localhost:9200/demo-index -HContent-type:application/json \
- -d '{"number_of_shards":5, "number_of_replicas":2, "routing.allocation.include.group": "group2"}'
+ -d '{"settings": {"index": { "number_of_shards":5, "number_of_replicas":2, "routing.allocation.include.group": "group2"}}}'
  ```
 
 ## Advanced Step: Auto-Scaling
