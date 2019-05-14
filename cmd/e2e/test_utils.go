@@ -137,11 +137,11 @@ var (
 			Args:  []string{"--cpu=1", "--cpu-load=10"},
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("10Mi"),
+					v1.ResourceMemory: resource.MustParse("50Mi"),
 					v1.ResourceCPU:    resource.MustParse("100m"),
 				},
 				Requests: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("10Mi"),
+					v1.ResourceMemory: resource.MustParse("50Mi"),
 					v1.ResourceCPU:    resource.MustParse("100m"),
 				},
 			},
