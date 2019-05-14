@@ -137,7 +137,7 @@ func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
 		return fmt.Errorf("failed to update status: %v", err)
 	}
 
-	err = o.operateNextPod(ctx, sts, sr)
+	err = o.operatePods(ctx, sts, sr)
 	return err
 }
 
@@ -262,14 +262,34 @@ func getSTSParentGeneration(sts *appsv1.StatefulSet) int64 {
 	return 0
 }
 
-// operatePods operates on Pods by picking all Pods one by one to update, ensuring the Pod
-// gets updated. It returns true, if no more pods to operate on were found.
+// operatePods operates on Pods by picking all Pods one by one to update,
+// ensuring the Pod gets updated.
+// In case the statefulset replicas does not match the desired replicas,
+// autoscaling is performed.
+// Scale-up is always prefered over any other action like draining old pods.
 // Updating a Pod means:
 // 1. scale out StatefulSet (if needed).
 // 2. mark Pod draining.
 // 3. drain Pod.
 // 4. delete Pod.
-func (o *Operator) operateNextPod(ctx context.Context, sts *appsv1.StatefulSet, sr StatefulResource) error {
+func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr StatefulResource) error {
+	desiredReplicas := sr.Replicas()
+
+	replicas := int32(0)
+	if sts.Spec.Replicas != nil {
+		replicas = *sts.Spec.Replicas
+	}
+
+	// prefer scale up over draining nodes.
+	if replicas < desiredReplicas {
+		err := o.rescaleStatefulSet(ctx, sts, sr)
+		if err != nil {
+			return fmt.Errorf("failed to rescale StatefulSet: %v", err)
+		}
+
+		return sr.OnStableReplicasHook(ctx)
+	}
+
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(
 			sr.LabelSelector(),
@@ -294,13 +314,6 @@ func (o *Operator) operateNextPod(ctx context.Context, sts *appsv1.StatefulSet, 
 		}
 
 		return sr.OnStableReplicasHook(ctx)
-	}
-
-	desiredReplicas := sr.Replicas()
-
-	replicas := int32(0)
-	if sts.Spec.Replicas != nil {
-		replicas = *sts.Spec.Replicas
 	}
 
 	// scale out by one to perform the update
