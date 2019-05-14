@@ -436,6 +436,11 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 		}
 
 		if resp.StatusCode() != http.StatusOK {
+			// if the index doesn't exist ES would return a 404
+			if resp.StatusCode() == http.StatusNotFound {
+				log.Warnf("Index '%s' not found, assuming it has been deleted.", index.Index)
+				return nil
+			}
 			return fmt.Errorf("code status %d - %s", resp.StatusCode(), resp.Body())
 		}
 	}

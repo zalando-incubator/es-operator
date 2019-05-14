@@ -159,7 +159,33 @@ func TestUpdateIndexSettings(t *testing.T) {
 	err := systemUnderTest.UpdateIndexSettings(indices)
 
 	assert.NoError(t, err)
+}
 
+func TestUpdateIndexSettingsIgnoresUnknownIndex(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/myindex/_settings",
+		httpmock.NewStringResponder(404, `{}`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	indices := make([]ESIndex, 0, 1)
+	indices = append(indices, ESIndex{
+		Primaries: 1,
+		Replicas:  1,
+		Index:     "myindex",
+	})
+	err := systemUnderTest.UpdateIndexSettings(indices)
+	info := httpmock.GetCallCountInfo()
+
+	assert.NoError(t, err)
+	require.EqualValues(t, 1, info["PUT http://elasticsearch:9200/myindex/_settings"])
 }
 
 func TestCreateIndex(t *testing.T) {
