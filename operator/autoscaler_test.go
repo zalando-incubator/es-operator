@@ -195,7 +195,6 @@ func TestScaleDownSnappingToNonFractionedShardToNodeRatio(t *testing.T) {
 	eds := edsTestFixture(14)
 	esNodes := make([]ESNode, 0)
 
-	// scale up by adding replicas
 	esIndices := map[string]ESIndex{
 		"ad1": {Replicas: 1, Primaries: 12, Index: "ad1"},
 	}
@@ -224,6 +223,29 @@ func TestScaleDown(t *testing.T) {
 	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
 	require.Equal(t, int32(3), *actual.NodeReplicas, actual.Description)
 	require.Equal(t, DOWN, actual.ScalingDirection, actual.Description)
+}
+
+func TestScaleDownToLowestBoundary(t *testing.T) {
+	eds := edsTestFixture(4)
+	eds.Spec.Scaling.MaxShardsPerNode = 40
+
+	esNodes := make([]ESNode, 0)
+
+	// scale down
+	esIndices := map[string]ESIndex{
+		"a": {Replicas: 1, Primaries: 12, Index: "a"},
+		"b": {Replicas: 1, Primaries: 12, Index: "b"},
+		"c": {Replicas: 1, Primaries: 12, Index: "c"},
+		"d": {Replicas: 1, Primaries: 12, Index: "d"},
+		"e": {Replicas: 1, Primaries: 12, Index: "e"},
+	}
+	scalingHint := DOWN
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, DOWN, actual.ScalingDirection, actual.Description)
+	require.Equal(t, int32(3), *actual.NodeReplicas, actual.Description)
 }
 
 func TestCannotScaleDownAnymore(t *testing.T) {
