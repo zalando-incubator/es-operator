@@ -325,7 +325,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		// increase shard-to-node ratio, and scale down by at least one
 		newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
 		ratio := float64(newTotalShards) / float64(newDesiredNodeReplicas)
-		if ratio >= float64(scalingSpec.MaxShardsPerNode) {
+		if ratio > float64(scalingSpec.MaxShardsPerNode) {
 			return noopScalingOperation(fmt.Sprintf("Scaling would violate the shard-to-node maximum (%.2f/%d).", ratio, scalingSpec.MaxShardsPerNode))
 		}
 
