@@ -18,7 +18,7 @@ spec:
         application: es-operator
         version: latest
     spec:
-      serviceAccountName: cdp
+      serviceAccountName: es-operator
       containers:
       - name: es-operator
         image: {{{IMAGE}}}
