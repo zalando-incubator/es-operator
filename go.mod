@@ -49,3 +49,5 @@ require (
 )
 
 replace k8s.io/klog => github.com/mikkeloscar/knolog v0.0.0-20190326191552-80742771eb6b
+
+go 1.13

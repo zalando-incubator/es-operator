@@ -47,7 +47,7 @@ pipeline:
       metadata:
         name: e2e
       spec:
-        serviceAccountName: cdp
+        serviceAccountName: es-operator
         restartPolicy: Never
         containers:
           - name: e2e
