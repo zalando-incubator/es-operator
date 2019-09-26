@@ -5,14 +5,14 @@ go:
   - "1.13.x"
 
 env:
-- GO111MODULE=on GOLANGCI_RELEASE="v1.16.0"
+- GOLANGCI_RELEASE="v1.19.1"
 
 jobs:
   include:
     - stage: Build
       before_script:
-        - go get github.com/mattn/goveralls
-        - go get github.com/lawrencewoodman/roveralls
+        - GO111MODULE=off go get github.com/mattn/goveralls
+        - GO111MODULE=off go get github.com/lawrencewoodman/roveralls
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_RELEASE}
       script:
         - make test
@@ -22,7 +22,7 @@ jobs:
         - goveralls -v -coverprofile=roveralls.coverprofile -service=travis-ci
     - stage: Documentation Tests
       before_script:
-        - go get sigs.k8s.io/kind
+        - GO111MODULE=on go get sigs.k8s.io/kind
         - curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
         - kind create cluster
         - export KUBECONFIG="$(kind get kubeconfig-path)"

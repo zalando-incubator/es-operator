@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"context"
 	"net/url"
 	"testing"
 
@@ -27,8 +28,7 @@ func TestDrain(t *testing.T) {
 	systemUnderTest := &ESClient{
 		Endpoint: url,
 	}
-
-	err := systemUnderTest.Drain(nil, &v1.Pod{
+	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
 		},
@@ -59,7 +59,7 @@ func TestCleanup(t *testing.T) {
 		Endpoint: url,
 	}
 
-	err := systemUnderTest.Cleanup(nil)
+	err := systemUnderTest.Cleanup(context.TODO())
 
 	assert.NoError(t, err)
 

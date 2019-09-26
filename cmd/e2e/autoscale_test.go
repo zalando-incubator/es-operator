@@ -49,8 +49,10 @@ func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 	err = backoff.Retry(createIndex, backoffCfg)
 	require.NoError(t, err)
 	verifyEDS(t, edsName, edsSpec, pint32(3))
-	esClient.DeleteIndex(edsName)
-	deleteEDS(edsName)
+	err = esClient.DeleteIndex(edsName)
+	require.NoError(t, err)
+	err = deleteEDS(edsName)
+	require.NoError(t, err)
 }
 
 func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
@@ -96,6 +98,8 @@ func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) 
 	err = backoff.Retry(createIndex, backoffCfg)
 	require.NoError(t, err)
 	verifyEDS(t, edsName, edsSpec, pint32(2))
-	esClient.DeleteIndex(edsName)
-	deleteEDS(edsName)
+	err = esClient.DeleteIndex(edsName)
+	require.NoError(t, err)
+	err = deleteEDS(edsName)
+	require.NoError(t, err)
 }
