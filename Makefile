@@ -1,4 +1,4 @@
-.PHONY: clean test check build.local build.linux build.osx build.docker build.push
+.PHONY: clean test lint build.local build.linux build.osx build.docker build.push
 
 BINARY        ?= es-operator
 VERSION       ?= $(shell git describe --tags --always --dirty)
@@ -20,10 +20,6 @@ clean:
 
 test: $(GENERATED)
 	go test -v $(GOPKGS)
-
-check:
-	golint $(GOPKGS)
-	go vet -v $(GOPKGS)
 
 lint:
 	golangci-lint run ./...
