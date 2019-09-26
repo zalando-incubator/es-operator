@@ -21,5 +21,6 @@ func TestEDSUpgradingEDS(t *testing.T) {
 	require.NoError(t, err)
 
 	verifyEDS(t, edsName, eds.Spec, eds.Spec.Replicas)
-	deleteEDS(edsName)
+	err = deleteEDS(edsName)
+	require.NoError(t, err)
 }

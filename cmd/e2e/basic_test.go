@@ -123,7 +123,8 @@ func TestEDSCreateBasic6(t *testing.T) {
 	edsName := "basic6"
 	edsSpec := testEDSCreate(t, edsName, "6.7.1", "es6-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
-	deleteEDS(edsName)
+	err := deleteEDS(edsName)
+	require.NoError(t, err)
 }
 
 func TestEDSCreateBasic7(t *testing.T) {
@@ -131,5 +132,6 @@ func TestEDSCreateBasic7(t *testing.T) {
 	edsName := "basic7"
 	edsSpec := testEDSCreate(t, edsName, "7.0.1", "es7-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
-	deleteEDS(edsName)
+	err := deleteEDS(edsName)
+	require.NoError(t, err)
 }
