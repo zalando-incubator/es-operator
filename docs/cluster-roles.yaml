@@ -17,6 +17,12 @@ rules:
   - update
   - patch
 - apiGroups:
+  - "zalando.org"
+  resources:
+  - elasticsearchmetricsets
+  verbs:
+  - create
+- apiGroups:
   - ""
   resources:
   - services
