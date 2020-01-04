@@ -1,0 +1,92 @@
+apiVersion: zalando.org/v1
+kind: ElasticsearchDataSet
+metadata:
+  labels:
+    application: elasticsearch
+    role: data
+    group: simple
+  name: es-data-simple
+  namespace: es-operator-demo
+spec:
+  #replicas: 5
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        volume.beta.kubernetes.io/storage-class: px-es-data-sc
+      name: data
+    spec:
+      storageClassName: px-es-data-sc
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  scaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 99
+    minIndexReplicas: 2
+    maxIndexReplicas: 3
+    minShardsPerNode: 2
+    maxShardsPerNode: 6
+    scaleUpCPUBoundary: 50
+    scaleUpThresholdDurationSeconds: 30
+    scaleUpCooldownSeconds: 30
+    scaleDownCPUBoundary: 25
+    scaleDownThresholdDurationSeconds: 30
+    scaleDownCooldownSeconds: 30
+    diskUsagePercentScaledownWatermark: 80
+  template:
+    metadata:
+      labels:
+        application: elasticsearch
+        role: data
+        group: simple
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: elasticsearch
+        env:
+        - name: "node.name"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "node.attr.group"
+          value: "simple"
+        - name: "node.master"
+          value: "false"
+        - name: "node.data"
+          value: "true"
+        - name: "ES_JAVA_OPTS"
+          value: "-Xmx500m -Xms500m"
+        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
+        ports:
+        - containerPort: 9300
+          name: transport
+        readinessProbe:
+          httpGet:
+            path: /_cat/master
+            port: 9200
+          timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: 1500m
+            memory: 800Mi
+          requests:
+            memory: 800Mi
+        volumeMounts:
+        - mountPath: /usr/share/elasticsearch/data
+          name: data
+        - name: elasticsearch-config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+
+      serviceAccountName: operator
+      volumes:
+      - name: elasticsearch-config
+        configMap:
+          name: es-config
+          items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml
