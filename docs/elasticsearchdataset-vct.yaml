@@ -11,11 +11,9 @@ spec:
   #replicas: 5
   volumeClaimTemplates:
   - metadata:
-      annotations:
-        volume.beta.kubernetes.io/storage-class: px-es-data-sc
       name: data
     spec:
-      storageClassName: px-es-data-sc
+      storageClassName: standard
       accessModes:
       - ReadWriteOnce
       resources:
