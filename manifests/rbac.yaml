@@ -14,7 +14,6 @@ rules:
   - elasticsearchdatasets
   - elasticsearchdatasets/status
   - elasticsearchmetricsets
-  - elasticsearchmetricsets/status
   verbs:
   - get
   - list
