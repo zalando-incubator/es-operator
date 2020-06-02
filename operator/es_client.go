@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-resty/resty"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/resty.v1"
 	v1 "k8s.io/api/core/v1"
 )
 

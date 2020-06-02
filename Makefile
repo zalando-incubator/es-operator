@@ -16,6 +16,7 @@ default: build.local
 
 clean:
 	rm -rf build
+	rm -rf vendor
 	rm -rf $(GENERATED)
 
 test: $(GENERATED)
