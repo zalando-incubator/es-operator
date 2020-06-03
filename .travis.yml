@@ -2,7 +2,7 @@ language: go
 dist: xenial
 
 go:
-  - "1.13.x"
+  - "1.14.x"
 
 env:
 - GOLANGCI_RELEASE="v1.21.0"
@@ -23,9 +23,10 @@ jobs:
     - stage: Documentation Tests
       before_script:
         - GO111MODULE=on go get sigs.k8s.io/kind
-        - curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+        - curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.18.3/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
         - kind create cluster
-        - export KUBECONFIG="$(kind get kubeconfig-path)"
+        - kind get kubeconfig > "$(pwd)/kind_kubeconfig"
+        - export KUBECONFIG="$(pwd)/kind_kubeconfig"
       script:
         - bash -c "grep '^kubectl apply' docs/GETTING_STARTED.md | sh"
         - bash -c "for i in {1..10}; do kubectl -n es-operator-demo get all ; echo '========='; if kubectl -n es-operator-demo get sts es-data-simple | grep '1/1'; then echo 'SUCCESS' ; exit 0 ; fi ; sleep 60 ; done; exit 1"

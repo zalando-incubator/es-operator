@@ -26,7 +26,7 @@ CUSTOM_RESOURCE_VERSION="v1"
 SCRIPT_ROOT="$(dirname ${BASH_SOURCE})/.."
 
 # special setup for go modules
-CODE_GEN_K8S_VERSION="c2090bec4d9b1fb25de3812f868accc2bc9ecbae" # 1.13.5 (https://github.com/kubernetes/code-generator/releases/tag/kubernetes-1.13.5)
+CODE_GEN_K8S_VERSION="v0.17.6"
 packages=(
 defaulter-gen
 client-gen
@@ -41,7 +41,7 @@ done
 # use vendor/ as a temporary stash for code-generator.
 rm -rf "${SCRIPT_ROOT}/vendor/k8s.io/code-generator"
 rm -rf "${SCRIPT_ROOT}/vendor/k8s.io/gengo"
-git clone --branch=release-1.12 https://github.com/kubernetes/code-generator.git "${SCRIPT_ROOT}/vendor/k8s.io/code-generator"
+git clone --branch=v0.17.6 https://github.com/kubernetes/code-generator.git "${SCRIPT_ROOT}/vendor/k8s.io/code-generator"
 git clone https://github.com/kubernetes/gengo.git "${SCRIPT_ROOT}/vendor/k8s.io/gengo"
 
 CODEGEN_PKG="${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}"
