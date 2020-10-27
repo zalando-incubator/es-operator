@@ -313,6 +313,10 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 			return fmt.Errorf("failed to rescale StatefulSet: %v", err)
 		}
 
+		err = waitForStableStatefulSet(ctx, o.kube, sts, stabilizationTimeout)
+		if err != nil {
+			return fmt.Errorf("StatefulSet %s/%s is not stable: %v", sts.Namespace, sts.Name, err)
+		}
 		return sr.OnStableReplicasHook(ctx)
 	}
 
