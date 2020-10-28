@@ -25,28 +25,6 @@ const (
 var (
 	edsPodSpec = func(nodeGroup, version, configMap string) v1.PodSpec {
 		return v1.PodSpec{
-			ServiceAccountName: "operator",
-			InitContainers: []v1.Container{
-				{
-					Name:    "init-sysctl",
-					Image:   "busybox:1.30",
-					Command: []string{"sysctl", "-w", "vm.max_map_count=262144"},
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("50Mi"),
-							v1.ResourceCPU:    resource.MustParse("5m"),
-						},
-						Requests: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("50Mi"),
-							v1.ResourceCPU:    resource.MustParse("5m"),
-						},
-					},
-					SecurityContext: &v1.SecurityContext{
-						Privileged: pbool(true),
-						RunAsUser:  pint64(0),
-					},
-				},
-			},
 			Containers: []v1.Container{
 				{
 					Name: "elasticsearch",
