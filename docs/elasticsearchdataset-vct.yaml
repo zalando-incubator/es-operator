@@ -43,6 +43,22 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+      initContainers:
+      - name: init-sysctl
+        image: busybox:1.30
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 50m
+          limits:
+            memory: 50Mi
+            cpu: 50m
+        securityContext:
+          privileged: true
       containers:
       - name: elasticsearch
         env:
