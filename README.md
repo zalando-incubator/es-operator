@@ -39,6 +39,7 @@ apiVersion: zalando.org/v1
 kind: ElasticsearchDataSet
 spec:
   replicas: 2
+  skipDraining: false
   scaling:
     enabled: true
     minReplicas: 1
@@ -62,6 +63,7 @@ spec:
 | Key      | Description   | Type |
 |----------|---------------|---------|
 | spec.replicas | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size. | Int |
+| spec.skipDraining | Allows the ES Operator to terminate an Elasticsearch node without re-allocating its data. This is useful for persistent disk setups, like EBS volumes. Beware that the ES Operator does not verify that you have more than one copy of your indices and therefore wouldn't protect you from potential data loss. (default=false) | Boolean |
 | spec.scaling.enabled | Enable or disable auto-scaling. May be necessary to enforce manual scaling. | Boolean |
 | spec.scaling.minReplicas | Minimum Pod replicas. Lower bound (inclusive) when scaling down.  | Int |
 | spec.scaling.maxReplicas | Maximum Pod replicas. Upper bound (inclusive) when scaling up.  | Int |

@@ -28,6 +28,8 @@ spec:
       properties:
         spec:
           properties:
+            skipDraining:
+              type: boolean
             scaling:
               properties:
                 enabled:

@@ -27,6 +27,10 @@ type ElasticsearchDataSetSpec struct {
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 
+	// SkipDraining determines whether pods of the EDS should be drained
+	// before termination or not.
+	SkipDraining bool `json:"skipDraining"`
+
 	// // serviceName is the name of the service that governs this StatefulSet.
 	// // This service must exist before the StatefulSet, and is responsible for
 	// // the network identity of the set. Pods get DNS/hostnames that follow the
