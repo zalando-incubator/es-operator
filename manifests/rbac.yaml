@@ -6,7 +6,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: es-operator
+  name: es-operator-e2e
 rules:
 - apiGroups:
   - "zalando.org"
@@ -93,11 +93,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: es-operator
+  name: es-operator-e2e
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: es-operator
+  name: es-operator-e2e
 subjects:
 - kind: ServiceAccount
   name: es-operator
