@@ -23,6 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
+	kubeinformers "k8s.io/client-go/informers"
+	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	kube_record "k8s.io/client-go/tools/record"
 )
@@ -37,6 +40,8 @@ const (
 type ElasticsearchOperator struct {
 	logger                *log.Entry
 	kube                  *clientset.Clientset
+	podInformer           informersv1.PodInformer
+	nodeInformer          informersv1.NodeInformer
 	interval              time.Duration
 	autoscalerInterval    time.Duration
 	metricsInterval       time.Duration
@@ -67,6 +72,7 @@ func NewElasticsearchOperator(
 	clusterDNSZone string,
 	elasticsearchEndpoint *url.URL,
 ) *ElasticsearchOperator {
+
 	return &ElasticsearchOperator{
 		logger: log.WithFields(
 			log.Fields{
@@ -87,8 +93,50 @@ func NewElasticsearchOperator(
 	}
 }
 
+// setup informers for pods and nodes.
+func (o *ElasticsearchOperator) setupInformers(ctx context.Context) error {
+	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(o.kube, 0, kubeinformers.WithNamespace(o.namespace))
+	podInformer := informerFactory.Core().V1().Pods()
+	nodeInformer := informerFactory.Core().V1().Nodes()
+
+	informers := []cache.SharedIndexInformer{
+		podInformer.Informer(),
+		nodeInformer.Informer(),
+	}
+
+	for _, informer := range informers {
+		// Add default resource event handlers to properly initialize informer.
+		informer.AddEventHandler(
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {},
+			},
+		)
+	}
+
+	informerFactory.Start(ctx.Done())
+
+	for _, informer := range informers {
+		// wait for the local cache to be populated.
+		err := wait.Poll(time.Second, 60*time.Second, func() (bool, error) {
+			return informer.HasSynced() == true, nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to sync cache for informer: %v", err)
+		}
+	}
+
+	o.podInformer = podInformer
+	o.nodeInformer = nodeInformer
+	return nil
+}
+
 // Run runs the main loop of the operator.
-func (o *ElasticsearchOperator) Run(ctx context.Context) {
+func (o *ElasticsearchOperator) Run(ctx context.Context) error {
+	err := o.setupInformers(ctx)
+	if err != nil {
+		return err
+	}
+
 	go o.collectMetrics(ctx)
 	go o.runAutoscaler(ctx)
 
@@ -96,6 +144,7 @@ func (o *ElasticsearchOperator) Run(ctx context.Context) {
 	o.runWatch(ctx)
 	<-ctx.Done()
 	o.logger.Info("Terminating main operator loop.")
+	return nil
 }
 
 // Run setups up a shared informer for listing and watching changes to pods and
@@ -630,6 +679,8 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 
 	operator := &Operator{
 		kube:                  o.kube,
+		podInformer:           o.podInformer,
+		nodeInformer:          o.nodeInformer,
 		priorityNodeSelectors: o.priorityNodeSelectors,
 		interval:              o.interval,
 		logger:                logger,
@@ -756,12 +807,13 @@ func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, e
 	}
 
 	// TODO: label filter
-	pods, err := o.kube.CoreV1().Pods(o.namespace).List(metav1.ListOptions{})
+	pods, err := o.podInformer.Lister().Pods(o.namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
+		pod := *pod
 		for _, es := range resources {
 			es := es
 			// TODO: leaky abstraction
