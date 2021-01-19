@@ -182,7 +182,7 @@ func (o *ElasticsearchOperator) collectMetrics(ctx context.Context) {
 		case <-time.After(time.Until(nextCheck)):
 			nextCheck = time.Now().Add(o.metricsInterval)
 
-			resources, err := o.collectResources()
+			resources, err := o.collectResources(ctx)
 			if err != nil {
 				o.logger.Error(err)
 				continue
@@ -195,7 +195,7 @@ func (o *ElasticsearchOperator) collectMetrics(ctx context.Context) {
 						logger: log.WithFields(log.Fields{"collector": "metrics"}),
 						es:     *es,
 					}
-					err := metrics.collectMetrics()
+					err := metrics.collectMetrics(ctx)
 					if err != nil {
 						o.logger.Error(err)
 						continue
@@ -224,7 +224,7 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 		case <-time.After(time.Until(nextCheck)):
 			nextCheck = time.Now().Add(o.autoscalerInterval)
 
-			resources, err := o.collectResources()
+			resources, err := o.collectResources(ctx)
 			if err != nil {
 				o.logger.Error(err)
 				continue
@@ -238,7 +238,7 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 						Endpoint: endpoint,
 					}
 
-					err := o.scaleEDS(es.ElasticsearchDataSet, es, client)
+					err := o.scaleEDS(ctx, es.ElasticsearchDataSet, es, client)
 					if err != nil {
 						o.logger.Error(err)
 						continue
@@ -303,15 +303,15 @@ func (r *EDSResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 	return r.eds.Spec.VolumeClaimTemplates
 }
 
-func (r *EDSResource) EnsureResources() error {
+func (r *EDSResource) EnsureResources(ctx context.Context) error {
 	// ensure PDB
-	err := r.ensurePodDisruptionBudget()
+	err := r.ensurePodDisruptionBudget(ctx)
 	if err != nil {
 		return err
 	}
 
 	// ensure service
-	err = r.ensureService()
+	err = r.ensureService(ctx)
 	if err != nil {
 		return err
 	}
@@ -325,11 +325,11 @@ func (r *EDSResource) Self() runtime.Object {
 
 // ensurePodDisruptionBudget creates a PodDisruptionBudget for the
 // ElasticsearchDataSet if it doesn't already exist.
-func (r *EDSResource) ensurePodDisruptionBudget() error {
+func (r *EDSResource) ensurePodDisruptionBudget(ctx context.Context) error {
 	var pdb *pv1beta1.PodDisruptionBudget
 	var err error
 
-	pdb, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
+	pdb, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(r.eds.Namespace).Get(ctx, r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf(
@@ -385,7 +385,7 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 
 	if createPDB {
 		var err error
-		_, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Create(pdb)
+		_, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Create(ctx, pdb, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf(
 				"failed to create PodDisruptionBudget for %s %s/%s: %v",
@@ -405,11 +405,11 @@ func (r *EDSResource) ensurePodDisruptionBudget() error {
 
 // ensureService creates a Service for the ElasticsearchDataSet if it doesn't
 // already exist.
-func (r *EDSResource) ensureService() error {
+func (r *EDSResource) ensureService(ctx context.Context) error {
 	var svc *v1.Service
 	var err error
 
-	svc, err = r.kube.CoreV1().Services(r.eds.Namespace).Get(r.eds.Name, metav1.GetOptions{})
+	svc, err = r.kube.CoreV1().Services(r.eds.Namespace).Get(ctx, r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf(
@@ -471,7 +471,7 @@ func (r *EDSResource) ensureService() error {
 
 	if createService {
 		var err error
-		_, err = r.kube.CoreV1().Services(svc.Namespace).Create(svc)
+		_, err = r.kube.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf(
 				"failed to create Service for %s %s/%s: %v",
@@ -498,13 +498,13 @@ func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod) error {
 // 'scaling-operation' annotation prior to scaling down the internal
 // StatefulSet.
 func (r *EDSResource) PreScaleDownHook(ctx context.Context) error {
-	return r.applyScalingOperation()
+	return r.applyScalingOperation(ctx)
 }
 
 // OnStableReplicasHook ensures that the indexReplicas is set as defined in the
 // EDS scaling-operation annotation.
 func (r *EDSResource) OnStableReplicasHook(ctx context.Context) error {
-	err := r.applyScalingOperation()
+	err := r.applyScalingOperation(ctx)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (r *EDSResource) OnStableReplicasHook(ctx context.Context) error {
 
 // UpdateStatus updates the status of the EDS to set the current replicas from
 // StatefulSet and updating the observedGeneration.
-func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
+func (r *EDSResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet) error {
 	observedGeneration := int64(0)
 	if r.eds.Status.ObservedGeneration != nil {
 		observedGeneration = *r.eds.Status.ObservedGeneration
@@ -530,7 +530,7 @@ func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
 		r.eds.Status.Replicas != replicas {
 		r.eds.Status.Replicas = replicas
 		r.eds.Status.ObservedGeneration = &r.eds.Generation
-		eds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(r.eds)
+		eds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(ctx, r.eds, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -545,7 +545,7 @@ func (r *EDSResource) UpdateStatus(sts *appsv1.StatefulSet) error {
 	return nil
 }
 
-func (r *EDSResource) applyScalingOperation() error {
+func (r *EDSResource) applyScalingOperation(ctx context.Context) error {
 	operation, err := edsScalingOperation(r.eds)
 	if err != nil {
 		return err
@@ -556,7 +556,7 @@ func (r *EDSResource) applyScalingOperation() error {
 		if err != nil {
 			return err
 		}
-		err = r.removeScalingOperationAnnotation()
+		err = r.removeScalingOperationAnnotation(ctx)
 		if err != nil {
 			return err
 		}
@@ -567,12 +567,12 @@ func (r *EDSResource) applyScalingOperation() error {
 // removeScalingOperationAnnotation removes the 'scaling-operation' annotation
 // from the EDS.
 // If the annotation is already gone, this is a no-op.
-func (r *EDSResource) removeScalingOperationAnnotation() error {
+func (r *EDSResource) removeScalingOperationAnnotation(ctx context.Context) error {
 	if _, ok := r.eds.Annotations[esScalingOperationKey]; ok {
 		delete(r.eds.Annotations, esScalingOperationKey)
 		_, err := r.kube.ZalandoV1().
 			ElasticsearchDataSets(r.eds.Namespace).
-			Update(r.eds)
+			Update(ctx, r.eds, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to remove 'scaling-operating' annotation from EDS: %v", err)
 		}
@@ -714,10 +714,10 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 
 // collectResources collects all the ElasticsearchDataSet resources and there
 // corresponding StatefulSets if they exist.
-func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, error) {
+func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types.UID]*ESResource, error) {
 	resources := make(map[types.UID]*ESResource)
 
-	edss, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).List(metav1.ListOptions{})
+	edss, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +740,7 @@ func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, e
 		}
 	}
 
-	metricSets, err := o.kube.ZalandoV1().ElasticsearchMetricSets(o.namespace).List(metav1.ListOptions{})
+	metricSets, err := o.kube.ZalandoV1().ElasticsearchMetricSets(o.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +756,7 @@ func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, e
 	}
 
 	// TODO: label filter
-	pods, err := o.kube.CoreV1().Pods(o.namespace).List(metav1.ListOptions{})
+	pods, err := o.kube.CoreV1().Pods(o.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -775,7 +775,7 @@ func (o *ElasticsearchOperator) collectResources() (map[types.UID]*ESResource, e
 	return resources, nil
 }
 
-func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESResource, client *ESClient) error {
+func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.ElasticsearchDataSet, es *ESResource, client *ESClient) error {
 	err := validateScalingSettings(eds.Spec.Scaling)
 	if err != nil {
 		o.recorder.Event(eds, v1.EventTypeWarning, "ScalingInvalid", fmt.Sprintf(
@@ -821,7 +821,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 			log.Infof("Updating last scaling event in EDS '%s/%s'", namespace, name)
 
 			// update status
-			eds, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).UpdateStatus(eds)
+			eds, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).UpdateStatus(ctx, eds, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -839,7 +839,7 @@ func (o *ElasticsearchOperator) scaleEDS(eds *zv1.ElasticsearchDataSet, es *ESRe
 
 			// persist changes of EDS
 			log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
-			_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(eds)
+			_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(ctx, eds, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}

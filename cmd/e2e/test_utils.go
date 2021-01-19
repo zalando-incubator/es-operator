@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -175,6 +176,7 @@ func resourceCreated(t *testing.T, kind string, name string, k8sInterface interf
 	get := reflect.ValueOf(k8sInterface).MethodByName("Get")
 	return newAwaiter(t, fmt.Sprintf("creation of %s %s", kind, name)).withPoll(func() (bool, error) {
 		result := get.Call([]reflect.Value{
+			reflect.ValueOf(context.Background()),
 			reflect.ValueOf(name),
 			reflect.ValueOf(metav1.GetOptions{}),
 		})
@@ -192,7 +194,7 @@ func waitForEDS(t *testing.T, name string) (*zv1.ElasticsearchDataSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return edsInterface().Get(name, metav1.GetOptions{})
+	return edsInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func waitForStatefulSet(t *testing.T, name string) (*appsv1.StatefulSet, error) {
@@ -200,7 +202,7 @@ func waitForStatefulSet(t *testing.T, name string) (*appsv1.StatefulSet, error) 
 	if err != nil {
 		return nil, err
 	}
-	return statefulSetInterface().Get(name, metav1.GetOptions{})
+	return statefulSetInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func waitForService(t *testing.T, name string) (*v1.Service, error) {
@@ -208,7 +210,7 @@ func waitForService(t *testing.T, name string) (*v1.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return serviceInterface().Get(name, metav1.GetOptions{})
+	return serviceInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 type expectedStsStatus struct {
@@ -236,7 +238,7 @@ func (expected expectedStsStatus) matches(sts *appsv1.StatefulSet) error {
 
 func waitForEDSCondition(t *testing.T, name string, conditions ...func(eds *zv1.ElasticsearchDataSet) error) error {
 	return newAwaiter(t, fmt.Sprintf("eds %s to reach desired condition", name)).withPoll(func() (retry bool, err error) {
-		eds, err := edsInterface().Get(name, metav1.GetOptions{})
+		eds, err := edsInterface().Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -252,7 +254,7 @@ func waitForEDSCondition(t *testing.T, name string, conditions ...func(eds *zv1.
 
 func waitForSTSCondition(t *testing.T, stsName string, conditions ...func(sts *appsv1.StatefulSet) error) error {
 	return newAwaiter(t, fmt.Sprintf("sts %s to reach desired condition", stsName)).withPoll(func() (retry bool, err error) {
-		sts, err := statefulSetInterface().Get(stsName, metav1.GetOptions{})
+		sts, err := statefulSetInterface().Get(context.Background(), stsName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -282,17 +284,17 @@ func createEDS(name string, spec zv1.ElasticsearchDataSetSpec) error {
 		},
 		Spec: *myspec,
 	}
-	_, err := edsInterface().Create(eds)
+	_, err := edsInterface().Create(context.Background(), eds, metav1.CreateOptions{})
 	return err
 }
 
 func updateEDS(name string, eds *zv1.ElasticsearchDataSet) error {
-	_, err := edsInterface().Update(eds)
+	_, err := edsInterface().Update(context.Background(), eds, metav1.UpdateOptions{})
 	return err
 }
 
 func deleteEDS(name string) error {
-	err := edsInterface().Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: pint64(10)})
+	err := edsInterface().Delete(context.Background(), name, metav1.DeleteOptions{GracePeriodSeconds: pint64(10)})
 	return err
 }
 

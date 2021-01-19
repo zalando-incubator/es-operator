@@ -21,7 +21,8 @@ kubectl apply -f docs/cluster-roles.yaml
 The ES Operator manages two custom resources. These need to be registered in your cluster.
 
 ```
-kubectl apply -f docs/custom-resource-definitions.yaml
+kubectl apply -f docs/zalando.org_elasticsearchdatasets.yaml
+kubectl apply -f docs/zalando.org_elasticsearchmetricsets.yaml
 ```
 
 

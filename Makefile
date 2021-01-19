@@ -6,7 +6,9 @@ IMAGE         ?= registry-write.opensource.zalan.do/poirot/$(BINARY)
 E2E_IMAGE     ?= $(IMAGE)-e2e
 TAG           ?= $(VERSION)
 SOURCES       = $(shell find . -name '*.go')
-GENERATED     = pkg/client pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
+CRD_TYPE_SOURCE = pkg/apis/zalando.org/v1/types.go
+GENERATED_CRDS = docs/zalando.org_elasticsearchdatasets.yaml docs/zalando.org_elasticsearchmetricsets.yaml
+GENERATED      = pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
 DOCKERFILE    ?= Dockerfile
 GOPKGS        = $(shell go list ./... | grep -v /e2e)
 BUILD_FLAGS   ?= -v
@@ -25,10 +27,13 @@ test: $(GENERATED)
 lint:
 	golangci-lint run ./...
 
-$(GENERATED):
+$(GENERATED): go.mod $(CRD_TYPE_SOURCE)
 	./hack/update-codegen.sh
 
-build.local: build/$(BINARY)
+$(GENERATED_CRDS): $(GENERATED) $(CRD_SOURCES)
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1 paths=./pkg/apis/... output:crd:dir=docs || /bin/true || true
+
+build.local: build/$(BINARY) $(GENERATED_CRDS)
 build.linux: build/linux/$(BINARY)
 
 build/linux/e2e: $(GENERATED) $(SOURCES)

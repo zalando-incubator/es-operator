@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"context"
 	"math"
 	"sort"
 	"time"
@@ -19,9 +20,9 @@ type ElasticsearchMetricsCollector struct {
 	es     ESResource
 }
 
-func (c *ElasticsearchMetricsCollector) collectMetrics() error {
+func (c *ElasticsearchMetricsCollector) collectMetrics(ctx context.Context) error {
 	// first, collect metrics for all pods....
-	metrics, err := c.kube.MetricsV1Beta1().PodMetricses(c.es.ElasticsearchDataSet.Namespace).List(metav1.ListOptions{})
+	metrics, err := c.kube.MetricsV1Beta1().PodMetricses(c.es.ElasticsearchDataSet.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -37,7 +38,7 @@ func (c *ElasticsearchMetricsCollector) collectMetrics() error {
 	median := calculateMedian(cpuUsagePercent)
 
 	// next, get the configmap and store the sample
-	return c.storeMedian(median)
+	return c.storeMedian(ctx, median)
 }
 
 func getCPUUsagePercent(metrics []v1beta1.PodMetrics, pods []v1.Pod) []int32 {
@@ -74,7 +75,7 @@ func getCPUUsagePercent(metrics []v1beta1.PodMetrics, pods []v1.Pod) []int32 {
 	return cpuUsagePercent
 }
 
-func (c *ElasticsearchMetricsCollector) storeMedian(i int32) error {
+func (c *ElasticsearchMetricsCollector) storeMedian(ctx context.Context, i int32) error {
 	currentValue := v12.ElasticsearchMetric{
 		Timestamp: metav1.Now(),
 		Value:     i,
@@ -97,7 +98,7 @@ func (c *ElasticsearchMetricsCollector) storeMedian(i int32) error {
 			},
 			Metrics: []v12.ElasticsearchMetric{currentValue},
 		}
-		_, err := c.kube.ZalandoV1().ElasticsearchMetricSets(c.es.MetricSet.Namespace).Create(c.es.MetricSet)
+		_, err := c.kube.ZalandoV1().ElasticsearchMetricSets(c.es.MetricSet.Namespace).Create(ctx, c.es.MetricSet, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -115,7 +116,7 @@ func (c *ElasticsearchMetricsCollector) storeMedian(i int32) error {
 		newMetricsList = append(newMetricsList, currentValue)
 		c.es.MetricSet.Metrics = newMetricsList
 
-		_, err := c.kube.ZalandoV1().ElasticsearchMetricSets(c.es.MetricSet.Namespace).Update(c.es.MetricSet)
+		_, err := c.kube.ZalandoV1().ElasticsearchMetricSets(c.es.MetricSet.Namespace).Update(ctx, c.es.MetricSet, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
