@@ -43,12 +43,12 @@ func (r *mockResource) PodTemplateSpec() *v1.PodTemplateSpec { return r.podTempl
 func (r *mockResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 	return r.volumeClaimTemplates
 }
-func (r *mockResource) Self() runtime.Object                           { return r.eds }
-func (r *mockResource) EnsureResources() error                         { return nil }
-func (r *mockResource) UpdateStatus(sts *appsv1.StatefulSet) error     { return nil }
-func (r *mockResource) PreScaleDownHook(ctx context.Context) error     { return nil }
-func (r *mockResource) OnStableReplicasHook(ctx context.Context) error { return nil }
-func (r *mockResource) Drain(ctx context.Context, pod *v1.Pod) error   { return nil }
+func (r *mockResource) Self() runtime.Object                                            { return r.eds }
+func (r *mockResource) EnsureResources(ctx context.Context) error                       { return nil }
+func (r *mockResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet) error { return nil }
+func (r *mockResource) PreScaleDownHook(ctx context.Context) error                      { return nil }
+func (r *mockResource) OnStableReplicasHook(ctx context.Context) error                  { return nil }
+func (r *mockResource) Drain(ctx context.Context, pod *v1.Pod) error                    { return nil }
 
 func TestPrioritizePodsForUpdate(t *testing.T) {
 	updatingPod := v1.Pod{

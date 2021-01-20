@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var elasticsearchdatasetsResource = schema.GroupVersionResource{Group: "zalando.
 var elasticsearchdatasetsKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "ElasticsearchDataSet"}
 
 // Get takes name of the elasticsearchDataSet, and returns the corresponding elasticsearchDataSet object, and an error if there is any.
-func (c *FakeElasticsearchDataSets) Get(name string, options v1.GetOptions) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
+func (c *FakeElasticsearchDataSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(elasticsearchdatasetsResource, c.ns, name), &zalandoorgv1.ElasticsearchDataSet{})
 
@@ -50,7 +52,7 @@ func (c *FakeElasticsearchDataSets) Get(name string, options v1.GetOptions) (res
 }
 
 // List takes label and field selectors, and returns the list of ElasticsearchDataSets that match those selectors.
-func (c *FakeElasticsearchDataSets) List(opts v1.ListOptions) (result *zalandoorgv1.ElasticsearchDataSetList, err error) {
+func (c *FakeElasticsearchDataSets) List(ctx context.Context, opts v1.ListOptions) (result *zalandoorgv1.ElasticsearchDataSetList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(elasticsearchdatasetsResource, elasticsearchdatasetsKind, c.ns, opts), &zalandoorgv1.ElasticsearchDataSetList{})
 
@@ -72,14 +74,14 @@ func (c *FakeElasticsearchDataSets) List(opts v1.ListOptions) (result *zalandoor
 }
 
 // Watch returns a watch.Interface that watches the requested elasticsearchDataSets.
-func (c *FakeElasticsearchDataSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeElasticsearchDataSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(elasticsearchdatasetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a elasticsearchDataSet and creates it.  Returns the server's representation of the elasticsearchDataSet, and an error, if there is any.
-func (c *FakeElasticsearchDataSets) Create(elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
+func (c *FakeElasticsearchDataSets) Create(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts v1.CreateOptions) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet), &zalandoorgv1.ElasticsearchDataSet{})
 
@@ -90,7 +92,7 @@ func (c *FakeElasticsearchDataSets) Create(elasticsearchDataSet *zalandoorgv1.El
 }
 
 // Update takes the representation of a elasticsearchDataSet and updates it. Returns the server's representation of the elasticsearchDataSet, and an error, if there is any.
-func (c *FakeElasticsearchDataSets) Update(elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
+func (c *FakeElasticsearchDataSets) Update(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts v1.UpdateOptions) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet), &zalandoorgv1.ElasticsearchDataSet{})
 
@@ -102,7 +104,7 @@ func (c *FakeElasticsearchDataSets) Update(elasticsearchDataSet *zalandoorgv1.El
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeElasticsearchDataSets) UpdateStatus(elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet) (*zalandoorgv1.ElasticsearchDataSet, error) {
+func (c *FakeElasticsearchDataSets) UpdateStatus(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts v1.UpdateOptions) (*zalandoorgv1.ElasticsearchDataSet, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(elasticsearchdatasetsResource, "status", c.ns, elasticsearchDataSet), &zalandoorgv1.ElasticsearchDataSet{})
 
@@ -113,7 +115,7 @@ func (c *FakeElasticsearchDataSets) UpdateStatus(elasticsearchDataSet *zalandoor
 }
 
 // Delete takes name of the elasticsearchDataSet and deletes it. Returns an error if one occurs.
-func (c *FakeElasticsearchDataSets) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeElasticsearchDataSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(elasticsearchdatasetsResource, c.ns, name), &zalandoorgv1.ElasticsearchDataSet{})
 
@@ -121,15 +123,15 @@ func (c *FakeElasticsearchDataSets) Delete(name string, options *v1.DeleteOption
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeElasticsearchDataSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(elasticsearchdatasetsResource, c.ns, listOptions)
+func (c *FakeElasticsearchDataSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(elasticsearchdatasetsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &zalandoorgv1.ElasticsearchDataSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched elasticsearchDataSet.
-func (c *FakeElasticsearchDataSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
+func (c *FakeElasticsearchDataSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *zalandoorgv1.ElasticsearchDataSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(elasticsearchdatasetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.ElasticsearchDataSet{})
 

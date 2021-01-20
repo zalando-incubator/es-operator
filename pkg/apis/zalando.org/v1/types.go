@@ -7,15 +7,21 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // ElasticsearchDataSet describes an Elasticsearch dataset which is operated
 // by the es-operator.
 // +k8s:deepcopy-gen=true
+// +kubebuilder:resource:categories="all",shortName=eds
+// +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.spec.replicas`,description="The desired number of replicas for the stateful set"
+// +kubebuilder:printcolumn:name="Current",type=integer,JSONPath=`.status.replicas`,description="The current number of replicas for the stateful set"
+// +kubebuilder:subresource:status
 type ElasticsearchDataSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ElasticsearchDataSetSpec   `json:"spec"`
+	Spec ElasticsearchDataSetSpec `json:"spec"`
+	// +optional
 	Status ElasticsearchDataSetStatus `json:"status"`
 }
 
@@ -48,20 +54,48 @@ type ElasticsearchDataSetSpec struct {
 // resource.
 // +k8s:deepcopy-gen=true
 type ElasticsearchDataSetScaling struct {
-	Enabled                            bool    `json:"enabled"`
-	MinReplicas                        int32   `json:"minReplicas"`
-	MaxReplicas                        int32   `json:"maxReplicas"`
-	MinIndexReplicas                   int32   `json:"minIndexReplicas"`
-	MaxIndexReplicas                   int32   `json:"maxIndexReplicas"`
-	MinShardsPerNode                   int32   `json:"minShardsPerNode"`
-	MaxShardsPerNode                   int32   `json:"maxShardsPerNode"`
-	ScaleUpCPUBoundary                 int32   `json:"scaleUpCPUBoundary"`
-	ScaleUpThresholdDurationSeconds    int64   `json:"scaleUpThresholdDurationSeconds"`
-	ScaleUpCooldownSeconds             int64   `json:"scaleUpCooldownSeconds"`
-	ScaleDownCPUBoundary               int32   `json:"scaleDownCPUBoundary"`
-	ScaleDownThresholdDurationSeconds  int64   `json:"scaleDownThresholdDurationSeconds"`
-	ScaleDownCooldownSeconds           int64   `json:"scaleDownCooldownSeconds"`
-	DiskUsagePercentScaledownWatermark float64 `json:"diskUsagePercentScaledownWatermark"`
+	// +optional
+	Enabled bool `json:"enabled"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MinReplicas int32 `json:"minReplicas"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxReplicas int32 `json:"maxReplicas"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MinIndexReplicas int32 `json:"minIndexReplicas"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxIndexReplicas int32 `json:"maxIndexReplicas"`
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MinShardsPerNode int32 `json:"minShardsPerNode"`
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MaxShardsPerNode int32 `json:"maxShardsPerNode"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleUpCPUBoundary int32 `json:"scaleUpCPUBoundary"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleUpThresholdDurationSeconds int64 `json:"scaleUpThresholdDurationSeconds"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleUpCooldownSeconds int64 `json:"scaleUpCooldownSeconds"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleDownCPUBoundary int32 `json:"scaleDownCPUBoundary"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleDownThresholdDurationSeconds int64 `json:"scaleDownThresholdDurationSeconds"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleDownCooldownSeconds int64 `json:"scaleDownCooldownSeconds"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	// +optional
+	DiskUsagePercentScaledownWatermark int32 `json:"diskUsagePercentScaledownWatermark"`
 }
 
 // ElasticsearchDataSetStatus is the status section of the ElasticsearchDataSet

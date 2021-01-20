@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,8 +26,10 @@ import (
 )
 
 // ElasticsearchDataSetLister helps list ElasticsearchDataSets.
+// All objects returned here must be treated as read-only.
 type ElasticsearchDataSetLister interface {
 	// List lists all ElasticsearchDataSets in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error)
 	// ElasticsearchDataSets returns an object that can list and get ElasticsearchDataSets.
 	ElasticsearchDataSets(namespace string) ElasticsearchDataSetNamespaceLister
@@ -58,10 +60,13 @@ func (s *elasticsearchDataSetLister) ElasticsearchDataSets(namespace string) Ela
 }
 
 // ElasticsearchDataSetNamespaceLister helps list and get ElasticsearchDataSets.
+// All objects returned here must be treated as read-only.
 type ElasticsearchDataSetNamespaceLister interface {
 	// List lists all ElasticsearchDataSets in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error)
 	// Get retrieves the ElasticsearchDataSet from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.ElasticsearchDataSet, error)
 	ElasticsearchDataSetNamespaceListerExpansion
 }

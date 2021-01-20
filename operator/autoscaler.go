@@ -210,7 +210,7 @@ func (as *AutoScaler) calculateScalingOperation(managedIndices map[string]ESInde
 	}
 
 	// safety check: ensure we don't scale-down if disk usage is already above threshold
-	if scalingOperation.ScalingDirection == DOWN && scalingSpec.DiskUsagePercentScaledownWatermark > 0 && as.getMaxDiskUsage(managedNodes) > scalingSpec.DiskUsagePercentScaledownWatermark {
+	if scalingOperation.ScalingDirection == DOWN && scalingSpec.DiskUsagePercentScaledownWatermark > 0 && as.getMaxDiskUsage(managedNodes) > float64(scalingSpec.DiskUsagePercentScaledownWatermark) {
 		return noopScalingOperation(fmt.Sprintf("Scaling would violate the minimum required disk free percent: %.2f", 75.0))
 	}
 

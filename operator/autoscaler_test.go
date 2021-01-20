@@ -503,7 +503,7 @@ func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 				MaxShardsPerNode:                   6,
 				MinIndexReplicas:                   1,
 				MaxIndexReplicas:                   3,
-				DiskUsagePercentScaledownWatermark: 75.0,
+				DiskUsagePercentScaledownWatermark: 75,
 			},
 			Replicas: &r,
 		},

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	time "time"
 
 	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
@@ -61,13 +62,13 @@ func NewFilteredElasticsearchDataSetInformer(client versioned.Interface, namespa
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().ElasticsearchDataSets(namespace).List(options)
+				return client.ZalandoV1().ElasticsearchDataSets(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().ElasticsearchDataSets(namespace).Watch(options)
+				return client.ZalandoV1().ElasticsearchDataSets(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&zalandoorgv1.ElasticsearchDataSet{},

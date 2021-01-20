@@ -66,12 +66,12 @@ type StatefulResource interface {
 	Self() runtime.Object
 
 	// EnsureResources
-	EnsureResources() error
+	EnsureResources(ctx context.Context) error
 
 	// UpdateStatus updates the status of the StatefulResource. The
 	// statefulset is parsed to provide additional information like
 	// replicas to the status.
-	UpdateStatus(sts *appsv1.StatefulSet) error
+	UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet) error
 
 	// PreScaleDownHook is triggered when a scaledown is to be performed.
 	// It's ensured that the hook will be triggered at least once, but it
@@ -121,18 +121,18 @@ func (o *Operator) Run(ctx context.Context, done chan<- struct{}, sr StatefulRes
 }
 
 func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
-	err := sr.EnsureResources()
+	err := sr.EnsureResources(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ensure resources: %v", err)
 	}
 
 	// ensure sts
-	sts, err := o.reconcileStatefulset(sr)
+	sts, err := o.reconcileStatefulset(ctx, sr)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile StatefulSet: %v", err)
 	}
 
-	err = sr.UpdateStatus(sts)
+	err = sr.UpdateStatus(ctx, sts)
 	if err != nil {
 		return fmt.Errorf("failed to update status: %v", err)
 	}
@@ -141,11 +141,11 @@ func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
 	return err
 }
 
-func (o *Operator) reconcileStatefulset(sr StatefulResource) (*appsv1.StatefulSet, error) {
+func (o *Operator) reconcileStatefulset(ctx context.Context, sr StatefulResource) (*appsv1.StatefulSet, error) {
 	var sts *appsv1.StatefulSet
 	var err error
 
-	sts, err = o.kube.AppsV1().StatefulSets(sr.Namespace()).Get(sr.Name(), metav1.GetOptions{})
+	sts, err = o.kube.AppsV1().StatefulSets(sr.Namespace()).Get(ctx, sr.Name(), metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -211,7 +211,7 @@ func (o *Operator) reconcileStatefulset(sr StatefulResource) (*appsv1.StatefulSe
 
 	if createStatefulSet {
 		var err error
-		sts, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Create(sts)
+		sts, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Create(ctx, sts, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +235,7 @@ func (o *Operator) reconcileStatefulset(sr StatefulResource) (*appsv1.StatefulSe
 			sts.Annotations[operatorParentGenerationAnnotationKey] = fmt.Sprintf("%d", sr.Generation())
 
 			var err error
-			sts, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(sts)
+			sts, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(ctx, sts, metav1.UpdateOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -296,12 +296,12 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 		).AsSelector().String(),
 	}
 
-	pods, err := o.kube.CoreV1().Pods(sr.Namespace()).List(opts)
+	pods, err := o.kube.CoreV1().Pods(sr.Namespace()).List(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list pods of StatefulSet: %v", err)
 	}
 
-	pod, err := o.getPodToUpdate(pods.Items, sts, sr)
+	pod, err := o.getPodToUpdate(ctx, pods.Items, sts, sr)
 	if err != nil {
 		return fmt.Errorf("failed to get Pod to update: %v", err)
 	}
@@ -325,7 +325,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 		replicas++
 		sts.Spec.Replicas = &replicas
 
-		_, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(sts)
+		_, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(ctx, sts, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to scale StatefulSet %s/%s to %d: %v", sts.Namespace, sts.Name, replicas, err)
 		}
@@ -345,7 +345,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 	// have different UUIDs).
 
 	// mark Pod draining
-	err = o.annotatePod(pod, operatorPodDrainingAnnotationKey, "true")
+	err = o.annotatePod(ctx, pod, operatorPodDrainingAnnotationKey, "true")
 	if err != nil {
 		return fmt.Errorf("failed to mark Pod %s/%s draining: %v", pod.Namespace, pod.Name, err)
 	}
@@ -364,7 +364,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 	// delete Pod
 	o.recorder.Event(sr.Self(), v1.EventTypeNormal, "DeletingPod", fmt.Sprintf("Deleting Pod '%s/%s'", pod.Namespace,
 		pod.Name))
-	err = o.kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
+	err = o.kube.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 		GracePeriodSeconds: pod.Spec.TerminationGracePeriodSeconds,
 	})
 	if err != nil {
@@ -372,7 +372,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 	}
 
 	// wait for Pod to be terminated and gone from the node.
-	err = waitForPodTermination(o.kube, pod)
+	err = waitForPodTermination(ctx, o.kube, pod)
 	if err != nil {
 		log.Warnf("Pod %s/%s not terminated within grace period: %v", pod.Namespace, pod.Name, err)
 	}
@@ -423,7 +423,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	}
 
 	// get all Pods of the StatefulSet
-	pods, err := o.kube.CoreV1().Pods(sts.Namespace).List(opts)
+	pods, err := o.kube.CoreV1().Pods(sts.Namespace).List(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -471,7 +471,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	}
 
 	// TODO: only update if something changed
-	_, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(sts)
+	_, err = o.kube.AppsV1().StatefulSets(sts.Namespace).Update(ctx, sts, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update StatefulSet %s/%s: %v", sts.Namespace, sts.Name, err)
 	}
@@ -517,13 +517,13 @@ func sortStatefulSetPods(pods []v1.Pod) ([]v1.Pod, error) {
 
 // getPodToUpdate gets a single Pod to update based on priority.
 // if no update is needed it returns nil.
-func (o *Operator) getPodToUpdate(pods []v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource) (*v1.Pod, error) {
+func (o *Operator) getPodToUpdate(ctx context.Context, pods []v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource) (*v1.Pod, error) {
 	// return early if there are no Pods to manage
 	if len(pods) == 0 {
 		return nil, nil
 	}
 
-	prioritizedNodes, unschedulableNodes, err := o.getNodes()
+	prioritizedNodes, unschedulableNodes, err := o.getNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -544,9 +544,9 @@ func (o *Operator) getPodToUpdate(pods []v1.Pod, sts *appsv1.StatefulSet, sr Sta
 
 // getNodes gets all nodes matching the priority node selector and all nodes
 // that are marked unschedulable.
-func (o *Operator) getNodes() (map[string]v1.Node, map[string]v1.Node, error) {
+func (o *Operator) getNodes(ctx context.Context) (map[string]v1.Node, map[string]v1.Node, error) {
 	opts := metav1.ListOptions{}
-	nodes, err := o.kube.CoreV1().Nodes().List(opts)
+	nodes, err := o.kube.CoreV1().Nodes().List(ctx, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -567,10 +567,10 @@ func (o *Operator) getNodes() (map[string]v1.Node, map[string]v1.Node, error) {
 
 // annotatePod annotates the Pod with the specified annotation key and value.
 // If the key/value is already present on the Pod, this is a no-op.
-func (o *Operator) annotatePod(pod *v1.Pod, annotationKey, annotationValue string) error {
+func (o *Operator) annotatePod(ctx context.Context, pod *v1.Pod, annotationKey, annotationValue string) error {
 	if value, ok := pod.Annotations[annotationKey]; !ok || value != annotationValue {
 		annotation := []byte(fmt.Sprintf(`{"metadata": {"annotations": {"%s": "%s"}}}`, annotationKey, annotationValue))
-		_, err := o.kube.CoreV1().Pods(pod.Namespace).Patch(pod.Name, types.StrategicMergePatchType, annotation)
+		_, err := o.kube.CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, annotation, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -584,14 +584,14 @@ func (o *Operator) annotatePod(pod *v1.Pod, annotationKey, annotationValue strin
 // an additional eviction head room.
 // This is to fully respect the termination expectations as described in:
 // https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
-func waitForPodTermination(client kubernetes.Interface, pod *v1.Pod) error {
+func waitForPodTermination(ctx context.Context, client kubernetes.Interface, pod *v1.Pod) error {
 	if pod.Spec.TerminationGracePeriodSeconds == nil {
 		// if no grace period is defined, we don't wait.
 		return nil
 	}
 
 	waitForTermination := func() error {
-		newpod, err := client.CoreV1().Pods(pod.Namespace).Get(pod.Name, metav1.GetOptions{})
+		newpod, err := client.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil
@@ -618,7 +618,7 @@ func waitForPodTermination(client kubernetes.Interface, pod *v1.Pod) error {
 // means that the number of replicas and number of ready replicas match.
 func waitForStableStatefulSet(ctx context.Context, client kubernetes.Interface, sts *appsv1.StatefulSet, timeout time.Duration) error {
 	checkStsReplicas := func() error {
-		newSts, err := client.AppsV1().StatefulSets(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+		newSts, err := client.AppsV1().StatefulSets(sts.Namespace).Get(ctx, sts.Name, metav1.GetOptions{})
 		if err != nil {
 			return backoff.Permanent(err)
 		}

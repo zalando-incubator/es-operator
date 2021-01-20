@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var elasticsearchmetricsetsResource = schema.GroupVersionResource{Group: "zaland
 var elasticsearchmetricsetsKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "ElasticsearchMetricSet"}
 
 // Get takes name of the elasticsearchMetricSet, and returns the corresponding elasticsearchMetricSet object, and an error if there is any.
-func (c *FakeElasticsearchMetricSets) Get(name string, options v1.GetOptions) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
+func (c *FakeElasticsearchMetricSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(elasticsearchmetricsetsResource, c.ns, name), &zalandoorgv1.ElasticsearchMetricSet{})
 
@@ -50,7 +52,7 @@ func (c *FakeElasticsearchMetricSets) Get(name string, options v1.GetOptions) (r
 }
 
 // List takes label and field selectors, and returns the list of ElasticsearchMetricSets that match those selectors.
-func (c *FakeElasticsearchMetricSets) List(opts v1.ListOptions) (result *zalandoorgv1.ElasticsearchMetricSetList, err error) {
+func (c *FakeElasticsearchMetricSets) List(ctx context.Context, opts v1.ListOptions) (result *zalandoorgv1.ElasticsearchMetricSetList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(elasticsearchmetricsetsResource, elasticsearchmetricsetsKind, c.ns, opts), &zalandoorgv1.ElasticsearchMetricSetList{})
 
@@ -72,14 +74,14 @@ func (c *FakeElasticsearchMetricSets) List(opts v1.ListOptions) (result *zalando
 }
 
 // Watch returns a watch.Interface that watches the requested elasticsearchMetricSets.
-func (c *FakeElasticsearchMetricSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeElasticsearchMetricSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(elasticsearchmetricsetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a elasticsearchMetricSet and creates it.  Returns the server's representation of the elasticsearchMetricSet, and an error, if there is any.
-func (c *FakeElasticsearchMetricSets) Create(elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
+func (c *FakeElasticsearchMetricSets) Create(ctx context.Context, elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet, opts v1.CreateOptions) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(elasticsearchmetricsetsResource, c.ns, elasticsearchMetricSet), &zalandoorgv1.ElasticsearchMetricSet{})
 
@@ -90,7 +92,7 @@ func (c *FakeElasticsearchMetricSets) Create(elasticsearchMetricSet *zalandoorgv
 }
 
 // Update takes the representation of a elasticsearchMetricSet and updates it. Returns the server's representation of the elasticsearchMetricSet, and an error, if there is any.
-func (c *FakeElasticsearchMetricSets) Update(elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
+func (c *FakeElasticsearchMetricSets) Update(ctx context.Context, elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet, opts v1.UpdateOptions) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(elasticsearchmetricsetsResource, c.ns, elasticsearchMetricSet), &zalandoorgv1.ElasticsearchMetricSet{})
 
@@ -101,7 +103,7 @@ func (c *FakeElasticsearchMetricSets) Update(elasticsearchMetricSet *zalandoorgv
 }
 
 // Delete takes name of the elasticsearchMetricSet and deletes it. Returns an error if one occurs.
-func (c *FakeElasticsearchMetricSets) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeElasticsearchMetricSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(elasticsearchmetricsetsResource, c.ns, name), &zalandoorgv1.ElasticsearchMetricSet{})
 
@@ -109,15 +111,15 @@ func (c *FakeElasticsearchMetricSets) Delete(name string, options *v1.DeleteOpti
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeElasticsearchMetricSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(elasticsearchmetricsetsResource, c.ns, listOptions)
+func (c *FakeElasticsearchMetricSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(elasticsearchmetricsetsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &zalandoorgv1.ElasticsearchMetricSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched elasticsearchMetricSet.
-func (c *FakeElasticsearchMetricSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
+func (c *FakeElasticsearchMetricSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *zalandoorgv1.ElasticsearchMetricSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(elasticsearchmetricsetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.ElasticsearchMetricSet{})
 
