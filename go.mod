@@ -10,9 +10,9 @@ require (
 	golang.org/x/sys v0.0.0-20210113181707-4bcb84eeeb78 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/resty.v1 v1.12.0
-	k8s.io/api v0.19.7
+	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.19.7 // indirect
-	k8s.io/apimachinery v0.19.7
+	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.19.7
 	k8s.io/code-generator v0.19.7
 	k8s.io/metrics v0.19.7
