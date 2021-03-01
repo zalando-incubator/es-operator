@@ -4,7 +4,7 @@ require (
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/jarcoal/httpmock v1.0.7
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.8.0
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/sys v0.0.0-20210113181707-4bcb84eeeb78 // indirect
