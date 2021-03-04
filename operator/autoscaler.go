@@ -246,15 +246,34 @@ func (as *AutoScaler) ensureUpperBoundNodeReplicas(scalingSpec *zv1.Elasticsearc
 func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint ScalingDirection, currentDesiredNodeReplicas int32) *ScalingOperation {
 	scalingSpec := as.eds.Spec.Scaling
 
+	newDesiredIndexReplicas := make([]ESIndex, 0, len(esIndices))
+
 	currentTotalShards := int32(0)
 	for _, index := range esIndices {
 		as.logger.Debugf("Index: %s, primaries: %d, replicas: %d", index.Index, index.Primaries, index.Replicas)
 		currentTotalShards += index.Primaries * (index.Replicas + 1)
+
+		if index.Replicas < scalingSpec.MinIndexReplicas {
+			newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+				Index:     index.Index,
+				Primaries: index.Primaries,
+				Replicas:  scalingSpec.MinIndexReplicas,
+			})
+		}
+	}
+
+	// independent of the scaling direction: in case there are indices with < MinIndexReplicas, we try to scale these indices.
+	if len(newDesiredIndexReplicas) > 0 {
+		return &ScalingOperation{
+			ScalingDirection: UP,
+			IndexReplicas:    newDesiredIndexReplicas,
+			Description:      "Scale indices replicas to fit MinIndexReplicas requirement",
+		}
 	}
 
 	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
 
-	// independent of the scaling direction: in case the scaling settings have changed (e.g. the MaxShardsPerNode), we might need to scale up.
+	// independent of the scaling direction: in case the scaling setting MaxShardsPerNode has changed, we might need to scale up.
 	if currentShardToNodeRatio > float64(scalingSpec.MaxShardsPerNode) {
 		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(currentTotalShards)/float64(scalingSpec.MaxShardsPerNode))))
 		return &ScalingOperation{
@@ -263,8 +282,6 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			Description:      fmt.Sprintf("Current shard-to-node ratio (%.2f) exceeding the desired limit of (%d).", currentShardToNodeRatio, scalingSpec.MaxShardsPerNode),
 		}
 	}
-
-	newDesiredIndexReplicas := make([]ESIndex, 0, len(esIndices))
 
 	switch scalingHint {
 	case UP:
@@ -283,7 +300,15 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 				})
 			}
 			if newTotalShards != currentTotalShards {
-				newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+				newDesiredNodeReplicas := currentDesiredNodeReplicas
+
+				currentShardToNodeRatio = float64(newTotalShards) / float64(currentDesiredNodeReplicas)
+				// Evaluate new number of nodes only if we above MinShardsPerNode parameter
+				if currentShardToNodeRatio >= float64(scalingSpec.MinShardsPerNode) {
+					newDesiredNodeReplicas = as.ensureUpperBoundNodeReplicas(scalingSpec,
+						calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+				}
+
 				return &ScalingOperation{
 					Description:      fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", currentShardToNodeRatio),
 					NodeReplicas:     &newDesiredNodeReplicas,
@@ -340,6 +365,9 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 
 func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards int32) int32 {
 	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	if currentShardToNodeRatio <= 1 {
+		return currentDesiredNodeReplicas
+	}
 	return int32(math.Ceil(float64(newTotalShards) / float64(currentShardToNodeRatio)))
 }
 
