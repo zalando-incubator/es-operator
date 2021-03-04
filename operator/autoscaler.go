@@ -313,7 +313,9 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 					Description:      fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", currentShardToNodeRatio),
 					NodeReplicas:     &newDesiredNodeReplicas,
 					IndexReplicas:    newDesiredIndexReplicas,
-					ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
+					// we don't use "as.calculateScalingDirection" because the func "calculateNodesWithSameShardToNodeRatio" can produce the same number of nodes
+					// but we still need to scale up shards
+					ScalingDirection: UP,
 				}
 			}
 		}

@@ -272,8 +272,8 @@ func TestIncreaseShardToNodeRatioMore(t *testing.T) {
 
 	// scale-down even if this means increasing shard-to-node ratio of more than +1
 	esIndices := map[string]ESIndex{
-		"ad1": {Replicas: 0, Primaries: 21, Index: "ad1"},
-		"ad2": {Replicas: 0, Primaries: 2, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 21, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 2, Index: "ad2"},
 	}
 	eds.Spec.Scaling.MaxShardsPerNode = 23
 	scalingHint := DOWN
@@ -341,15 +341,36 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
+func TestScaleDownCausedByShardToNodeRatioLessThanOne(t *testing.T) {
+	eds := edsTestFixture(12)
+	esNodes := make([]ESNode, 0)
+
+	// require to scale-up because we exceeded shard-to-node ratio limits.
+	eds.Spec.Scaling.MaxShardsPerNode = 6
+	eds.Spec.Scaling.MaxReplicas = 999
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 3, Index: "ad1"},
+	}
+	// scaling independent of desired scaling direction
+	scalingHint := UP
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, int32(12), *actual.NodeReplicas, actual.Description)
+	require.Equal(t, 1, len(actual.IndexReplicas), actual.Description)
+	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
+}
+
 func TestAtMaxShardsPerNode(t *testing.T) {
 	eds := edsTestFixture(4)
 	esNodes := make([]ESNode, 0)
 
 	// don't scale down if that would violate the maxShardsPerNode
-	eds.Spec.Scaling.MaxShardsPerNode = 6
+	eds.Spec.Scaling.MaxShardsPerNode = 12
 	esIndices := map[string]ESIndex{
-		"ad1": {Replicas: 1, Primaries: 9, Index: "ad1"},
-		"ad2": {Replicas: 0, Primaries: 5, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 18, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 5, Index: "ad2"},
 	}
 	scalingHint := DOWN
 
@@ -359,6 +380,25 @@ func TestAtMaxShardsPerNode(t *testing.T) {
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas), actual.Description)
 	require.Equal(t, NONE, actual.ScalingDirection, actual.Description)
+}
+
+func TestScaleMinIndexReplicas(t *testing.T) {
+	eds := edsTestFixture(4)
+	esNodes := make([]ESNode, 0)
+
+	// scale up indexReplicas to 2 despite of scalingHint == DOWN
+	eds.Spec.Scaling.MinIndexReplicas = 2
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 0, Primaries: 1, Index: "ad1"},
+		"ad2": {Replicas: 0, Primaries: 1, Index: "ad2"},
+	}
+	scalingHint := DOWN
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, 2, len(actual.IndexReplicas), actual.Description)
+	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
 func TestAtMinIndexReplicas(t *testing.T) {
