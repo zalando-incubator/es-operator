@@ -342,7 +342,7 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
-func TestScaleDownCausedByShardToNodeRatioLessThanOne(t *testing.T) {
+func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
 	eds := edsTestFixture(11)
 	esNodes := make([]ESNode, 0)
 
