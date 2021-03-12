@@ -564,6 +564,16 @@ func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 	}
 }
 
+func TestCalculateNodeBoundaries(t *testing.T) {
+	eds := edsTestFixture(3)
+	eds.Spec.Scaling.MinReplicas = 2
+	eds.Spec.Scaling.MaxReplicas = 5
+	as := systemUnderTest(eds, nil, nil)
+	require.Equal(t, 2, int(as.ensureBoundsNodeReplicas(1)))
+	require.Equal(t, 3, int(as.ensureBoundsNodeReplicas(3)))
+	require.Equal(t, 5, int(as.ensureBoundsNodeReplicas(6)))
+}
+
 func TestCalculateIncreasedNodes(t *testing.T) {
 	require.Equal(t, 64, int(calculateIncreasedNodes(32, 64)))
 	require.Equal(t, 64, int(calculateIncreasedNodes(64, 64)))
