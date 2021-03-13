@@ -22,7 +22,7 @@ clean:
 	rm -rf $(GENERATED)
 
 test: $(GENERATED)
-	go test -v $(GOPKGS)
+	go test -v -coverprofile=profile.cov $(GOPKGS)
 
 lint:
 	golangci-lint run ./...

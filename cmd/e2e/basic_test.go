@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type TestEDSSpecFactory struct {
@@ -43,8 +41,8 @@ func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 	var result = zv1.ElasticsearchDataSetSpec{
 		Replicas: &f.replicas,
 		Scaling:  f.scaling,
-		Template: v1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
+		Template: zv1.PodTemplateSpec{
+			EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
 				Labels: map[string]string{
 					"application": "es-operator",
 					"component":   "elasticsearch",
@@ -121,7 +119,7 @@ func mergeLabels(labelsSlice ...map[string]string) map[string]string {
 func TestEDSCreateBasic6(t *testing.T) {
 	t.Parallel()
 	edsName := "basic6"
-	edsSpec := testEDSCreate(t, edsName, "6.7.1", "es6-config")
+	edsSpec := testEDSCreate(t, edsName, "6.8.14", "es6-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
@@ -130,7 +128,7 @@ func TestEDSCreateBasic6(t *testing.T) {
 func TestEDSCreateBasic7(t *testing.T) {
 	t.Parallel()
 	edsName := "basic7"
-	edsSpec := testEDSCreate(t, edsName, "7.0.1", "es7-config")
+	edsSpec := testEDSCreate(t, edsName, "7.10.2", "es7-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
