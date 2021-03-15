@@ -225,20 +225,14 @@ func (as *AutoScaler) getMaxDiskUsage(managedNodes []ESNode) float64 {
 	return maxDisk
 }
 
-func (as *AutoScaler) ensureLowerBoundNodeReplicas(scalingSpec *zv1.ElasticsearchDataSetScaling, newDesiredNodeReplicas int32) int32 {
-	if scalingSpec.MinReplicas > 0 {
-		return int32(math.Max(float64(newDesiredNodeReplicas), float64(scalingSpec.MinReplicas)))
+func (as *AutoScaler) ensureBoundsNodeReplicas(newDesiredNodeReplicas int32) int32 {
+	scalingSpec := as.eds.Spec.Scaling
+	if scalingSpec.MaxReplicas > 0 && scalingSpec.MaxReplicas < newDesiredNodeReplicas {
+		as.logger.Warnf("Requested to scale up to %d, which is beyond the defined maxReplicas of %d.", newDesiredNodeReplicas, scalingSpec.MaxReplicas)
+		return scalingSpec.MaxReplicas
 	}
-	return newDesiredNodeReplicas
-}
-
-func (as *AutoScaler) ensureUpperBoundNodeReplicas(scalingSpec *zv1.ElasticsearchDataSetScaling, newDesiredNodeReplicas int32) int32 {
-	if scalingSpec.MaxReplicas > 0 {
-		upperBound := int32(math.Min(float64(newDesiredNodeReplicas), float64(scalingSpec.MaxReplicas)))
-		if upperBound < newDesiredNodeReplicas {
-			as.logger.Warnf("Requested to scale up to %d, which is beyond the defined maxReplicas of %d.", newDesiredNodeReplicas, scalingSpec.MaxReplicas)
-		}
-		return upperBound
+	if scalingSpec.MinReplicas > 0 && scalingSpec.MinReplicas > newDesiredNodeReplicas {
+		return scalingSpec.MinReplicas
 	}
 	return newDesiredNodeReplicas
 }
@@ -246,17 +240,27 @@ func (as *AutoScaler) ensureUpperBoundNodeReplicas(scalingSpec *zv1.Elasticsearc
 func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint ScalingDirection, currentDesiredNodeReplicas int32) *ScalingOperation {
 	scalingSpec := as.eds.Spec.Scaling
 
+	newDesiredIndexReplicas := make([]ESIndex, 0, len(esIndices))
+
 	currentTotalShards := int32(0)
 	for _, index := range esIndices {
 		as.logger.Debugf("Index: %s, primaries: %d, replicas: %d", index.Index, index.Primaries, index.Replicas)
 		currentTotalShards += index.Primaries * (index.Replicas + 1)
+
+		if index.Replicas < scalingSpec.MinIndexReplicas {
+			newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+				Index:     index.Index,
+				Primaries: index.Primaries,
+				Replicas:  scalingSpec.MinIndexReplicas,
+			})
+		}
 	}
 
 	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
 
-	// independent of the scaling direction: in case the scaling settings have changed (e.g. the MaxShardsPerNode), we might need to scale up.
+	// independent of the scaling direction: in case the scaling setting MaxShardsPerNode has changed, we might need to scale up.
 	if currentShardToNodeRatio > float64(scalingSpec.MaxShardsPerNode) {
-		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, int32(math.Ceil(float64(currentTotalShards)/float64(scalingSpec.MaxShardsPerNode))))
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(int32(math.Ceil(float64(currentTotalShards)/float64(scalingSpec.MaxShardsPerNode))))
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 			NodeReplicas:     &newDesiredNodeReplicas,
@@ -264,7 +268,14 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 	}
 
-	newDesiredIndexReplicas := make([]ESIndex, 0, len(esIndices))
+	// independent of the scaling direction: in case there are indices with < MinIndexReplicas, we try to scale these indices.
+	if len(newDesiredIndexReplicas) > 0 {
+		return &ScalingOperation{
+			ScalingDirection: UP,
+			IndexReplicas:    newDesiredIndexReplicas,
+			Description:      "Scale indices replicas to fit MinIndexReplicas requirement",
+		}
+	}
 
 	switch scalingHint {
 	case UP:
@@ -283,18 +294,33 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 				})
 			}
 			if newTotalShards != currentTotalShards {
-				newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+				newDesiredNodeReplicas := currentDesiredNodeReplicas
+
+				scalingMsg := "Increasing index replicas."
+
+				targetShardToNodeRatio := float64(newTotalShards) / float64(currentDesiredNodeReplicas)
+				// Evaluate new number of nodes only if we above MinShardsPerNode parameter
+				if targetShardToNodeRatio >= float64(scalingSpec.MinShardsPerNode) {
+					newDesiredNodeReplicas = as.ensureBoundsNodeReplicas(
+						calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+					if newDesiredNodeReplicas != currentDesiredNodeReplicas {
+						scalingMsg = fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", targetShardToNodeRatio)
+					}
+				}
+
 				return &ScalingOperation{
-					Description:      fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", currentShardToNodeRatio),
+					Description:      scalingMsg,
 					NodeReplicas:     &newDesiredNodeReplicas,
 					IndexReplicas:    newDesiredIndexReplicas,
-					ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
+					// we don't use "as.calculateScalingDirection" because the func "calculateNodesWithSameShardToNodeRatio" can produce the same number of nodes
+					// but we still need to scale up shards
+					ScalingDirection: UP,
 				}
 			}
 		}
 
 		// round down to the next non-fractioned shard-to-node ratio
-		newDesiredNodeReplicas := as.ensureUpperBoundNodeReplicas(scalingSpec, calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
 
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
@@ -314,7 +340,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			}
 		}
 		if newTotalShards != currentTotalShards {
-			newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+			newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
 			return &ScalingOperation{
 				ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 				NodeReplicas:     &newDesiredNodeReplicas,
@@ -323,7 +349,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			}
 		}
 		// increase shard-to-node ratio, and scale down by at least one
-		newDesiredNodeReplicas := as.ensureLowerBoundNodeReplicas(scalingSpec, calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
 		ratio := float64(newTotalShards) / float64(newDesiredNodeReplicas)
 		if ratio > float64(scalingSpec.MaxShardsPerNode) {
 			return noopScalingOperation(fmt.Sprintf("Scaling would violate the shard-to-node maximum (%.2f/%d).", ratio, scalingSpec.MaxShardsPerNode))
@@ -340,6 +366,9 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 
 func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards int32) int32 {
 	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	if currentShardToNodeRatio <= 1 {
+		return currentDesiredNodeReplicas
+	}
 	return int32(math.Ceil(float64(newTotalShards) / float64(currentShardToNodeRatio)))
 }
 

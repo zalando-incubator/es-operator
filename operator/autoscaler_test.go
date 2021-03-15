@@ -272,9 +272,10 @@ func TestIncreaseShardToNodeRatioMore(t *testing.T) {
 
 	// scale-down even if this means increasing shard-to-node ratio of more than +1
 	esIndices := map[string]ESIndex{
-		"ad1": {Replicas: 0, Primaries: 21, Index: "ad1"},
-		"ad2": {Replicas: 0, Primaries: 2, Index: "ad2"},
+		"ad1": {Replicas: 0, Primaries: 42, Index: "ad1"},
+		"ad2": {Replicas: 0, Primaries: 4, Index: "ad2"},
 	}
+	eds.Spec.Scaling.MinIndexReplicas = 0
 	eds.Spec.Scaling.MaxShardsPerNode = 23
 	scalingHint := DOWN
 
@@ -341,16 +342,46 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
+func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
+	eds := edsTestFixture(11)
+	esNodes := make([]ESNode, 0)
+
+	// require to scale-up index replicas because we are below one shard per node.
+	eds.Spec.Scaling.MinReplicas = 11
+	eds.Spec.Scaling.MaxReplicas = 999
+
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 5, Index: "ad1"},
+	}
+	// calculated ShardToNode ratio is 10/11 ~ 0.9
+	eds.Spec.Scaling.MinShardsPerNode = 1
+	// scaling independent of desired scaling direction
+	scalingHint := UP
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, int32(11), *actual.NodeReplicas, actual.Description)
+	require.Equal(t, 1, len(actual.IndexReplicas), actual.Description)
+	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
+}
+
 func TestAtMaxShardsPerNode(t *testing.T) {
 	eds := edsTestFixture(4)
 	esNodes := make([]ESNode, 0)
 
-	// don't scale down if that would violate the maxShardsPerNode
-	eds.Spec.Scaling.MaxShardsPerNode = 6
 	esIndices := map[string]ESIndex{
-		"ad1": {Replicas: 1, Primaries: 9, Index: "ad1"},
-		"ad2": {Replicas: 0, Primaries: 5, Index: "ad2"},
+		"ad1": {Replicas: 1, Primaries: 18, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 5, Index: "ad2"},
 	}
+	// don't scale down if that would violate the maxShardsPerNode
+	// calculations:
+	//   ad1 shards = primaries shards + replicas shards = 18 + 1*18 = 36
+	//   ad2 shards = 5 * 1*5 = 10
+	//   total shards = 46
+	//   per node = 46/4 = 11.5
+	eds.Spec.Scaling.MaxShardsPerNode = 12
+
 	scalingHint := DOWN
 
 	as := systemUnderTest(eds, nil, nil)
@@ -359,6 +390,29 @@ func TestAtMaxShardsPerNode(t *testing.T) {
 	require.Nil(t, actual.NodeReplicas)
 	require.Equal(t, 0, len(actual.IndexReplicas), actual.Description)
 	require.Equal(t, NONE, actual.ScalingDirection, actual.Description)
+}
+
+func TestScaleMinIndexReplicas(t *testing.T) {
+	eds := edsTestFixture(4)
+	esNodes := make([]ESNode, 0)
+
+	// scale up indexReplicas to 2 despite of scalingHint == DOWN
+	eds.Spec.Scaling.MinIndexReplicas = 2
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 0, Primaries: 1, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 1, Index: "ad2"},
+		"ad3": {Replicas: 2, Primaries: 1, Index: "ad3"},
+		"ad4": {Replicas: 3, Primaries: 1, Index: "ad4"},
+	}
+	scalingHint := DOWN
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, 2, len(actual.IndexReplicas), actual.Description)
+	require.Contains(t, actual.IndexReplicas, ESIndex{Index: "ad1", Primaries: 1, Replicas: 2})
+	require.Contains(t, actual.IndexReplicas, ESIndex{Index: "ad2", Primaries: 1, Replicas: 2})
+	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
 func TestAtMinIndexReplicas(t *testing.T) {
@@ -510,6 +564,16 @@ func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 	}
 }
 
+func TestCalculateNodeBoundaries(t *testing.T) {
+	eds := edsTestFixture(3)
+	eds.Spec.Scaling.MinReplicas = 2
+	eds.Spec.Scaling.MaxReplicas = 5
+	as := systemUnderTest(eds, nil, nil)
+	require.Equal(t, 2, int(as.ensureBoundsNodeReplicas(1)))
+	require.Equal(t, 3, int(as.ensureBoundsNodeReplicas(3)))
+	require.Equal(t, 5, int(as.ensureBoundsNodeReplicas(6)))
+}
+
 func TestCalculateIncreasedNodes(t *testing.T) {
 	require.Equal(t, 64, int(calculateIncreasedNodes(32, 64)))
 	require.Equal(t, 64, int(calculateIncreasedNodes(64, 64)))
@@ -523,6 +587,8 @@ func TestCalculateDecreaseNodes(t *testing.T) {
 }
 
 func TestCalculateNodesWithSameShardToNodeRatio(t *testing.T) {
+	require.Equal(t, 16, int(calculateNodesWithSameShardToNodeRatio(16, 4, 4)))
+	require.Equal(t, 16, int(calculateNodesWithSameShardToNodeRatio(16, 4, 6)))
 	require.Equal(t, 12, int(calculateNodesWithSameShardToNodeRatio(16, 32, 24)))
 	require.Equal(t, 17, int(calculateNodesWithSameShardToNodeRatio(17, 32, 32)))
 }
