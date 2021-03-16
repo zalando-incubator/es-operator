@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sysctl
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      application: sysctl
+  template:
+    metadata:
+      labels:
+        application: sysctl
+    spec:
+      containers:
+      - name: sysctl
+        image: busybox
+        stdin: true
+        command: ["/bin/sh", "-c"]
+        args:
+        - "sysctl -w vm.max_map_count=262144 && cat"
+        resources:
+          limits:
+            cpu: 1m
+            memory: 5Mi
+          requests:
+            cpu: 1m
+            memory: 5Mi
+        securityContext:
+          privileged: true
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists

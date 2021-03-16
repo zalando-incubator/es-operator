@@ -6,12 +6,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: operator
-  namespace: es-operator-demo
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: es-operator
   namespace: es-operator-demo
 ---

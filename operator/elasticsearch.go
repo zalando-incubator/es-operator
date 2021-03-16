@@ -296,7 +296,14 @@ func (r *EDSResource) Replicas() int32 {
 }
 
 func (r *EDSResource) PodTemplateSpec() *v1.PodTemplateSpec {
-	return r.eds.Spec.Template.DeepCopy()
+	template := r.eds.Spec.Template.DeepCopy()
+	return &v1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: template.Annotations,
+			Labels:      template.Labels,
+		},
+		Spec: template.Spec,
+	}
 }
 
 func (r *EDSResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {

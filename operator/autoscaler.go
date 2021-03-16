@@ -260,7 +260,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 
 	// independent of the scaling direction: in case the scaling setting MaxShardsPerNode has changed, we might need to scale up.
 	if currentShardToNodeRatio > float64(scalingSpec.MaxShardsPerNode) {
-		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(int32(math.Ceil(float64(currentTotalShards)/float64(scalingSpec.MaxShardsPerNode))))
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(int32(math.Ceil(float64(currentTotalShards) / float64(scalingSpec.MaxShardsPerNode))))
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 			NodeReplicas:     &newDesiredNodeReplicas,
@@ -309,9 +309,9 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 				}
 
 				return &ScalingOperation{
-					Description:      scalingMsg,
-					NodeReplicas:     &newDesiredNodeReplicas,
-					IndexReplicas:    newDesiredIndexReplicas,
+					Description:   scalingMsg,
+					NodeReplicas:  &newDesiredNodeReplicas,
+					IndexReplicas: newDesiredIndexReplicas,
 					// we don't use "as.calculateScalingDirection" because the func "calculateNodesWithSameShardToNodeRatio" can produce the same number of nodes
 					// but we still need to scale up shards
 					ScalingDirection: UP,

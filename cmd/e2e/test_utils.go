@@ -57,6 +57,7 @@ var (
 						},
 					},
 					ReadinessProbe: &v1.Probe{
+						InitialDelaySeconds: 15,
 						Handler: v1.Handler{
 							HTTPGet: &v1.HTTPGetAction{
 								Path:   "/_cluster/health?local=true",

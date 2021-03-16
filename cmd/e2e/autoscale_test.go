@@ -12,7 +12,7 @@ import (
 // we can  can be tested on ES6 only.
 func TestEDSCPUAutoscaleUP6(t *testing.T) {
 	t.Parallel()
-	runTestEDSCPUAutoScaleUP(t, "6.7.1", "es6-config")
+	runTestEDSCPUAutoScaleUP(t, "6.8.14", "es6-config")
 }
 
 func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
@@ -57,12 +57,12 @@ func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 
 func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "6.7.1", "es6-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "6.8.14", "es6-config")
 }
 
 func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "7.0.1", "es7-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "7.10.2", "es7-config")
 }
 
 func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {
