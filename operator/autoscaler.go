@@ -256,11 +256,11 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 	}
 
-	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	currentShardToNodeRatio := shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas)
 
 	// independent of the scaling direction: in case the scaling setting MaxShardsPerNode has changed, we might need to scale up.
 	if currentShardToNodeRatio > float64(scalingSpec.MaxShardsPerNode) {
-		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(int32(math.Ceil(float64(currentTotalShards) / float64(scalingSpec.MaxShardsPerNode))))
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(int32(math.Ceil(shardToNodeRatio(currentTotalShards, scalingSpec.MaxShardsPerNode))))
 		return &ScalingOperation{
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 			NodeReplicas:     &newDesiredNodeReplicas,
@@ -293,18 +293,17 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 					Replicas:  index.Replicas + 1,
 				})
 			}
-			if newTotalShards != currentTotalShards {
+			if newTotalShards > currentTotalShards {
 				newDesiredNodeReplicas := currentDesiredNodeReplicas
 
 				scalingMsg := "Increasing index replicas."
 
-				targetShardToNodeRatio := float64(newTotalShards) / float64(currentDesiredNodeReplicas)
 				// Evaluate new number of nodes only if we above MinShardsPerNode parameter
-				if targetShardToNodeRatio >= float64(scalingSpec.MinShardsPerNode) {
+				if shardToNodeRatio(newTotalShards, currentDesiredNodeReplicas) >= float64(scalingSpec.MinShardsPerNode) {
 					newDesiredNodeReplicas = as.ensureBoundsNodeReplicas(
 						calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
 					if newDesiredNodeReplicas != currentDesiredNodeReplicas {
-						scalingMsg = fmt.Sprintf("Keeping shard-to-node ratio (%.2f), and increasing index replicas.", targetShardToNodeRatio)
+						scalingMsg = fmt.Sprintf("Trying to keep shard-to-node ratio (%.2f), and increasing index replicas.", shardToNodeRatio(newTotalShards, newDesiredNodeReplicas))
 					}
 				}
 
@@ -350,7 +349,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 		// increase shard-to-node ratio, and scale down by at least one
 		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
-		ratio := float64(newTotalShards) / float64(newDesiredNodeReplicas)
+		ratio := shardToNodeRatio(newTotalShards, newDesiredNodeReplicas)
 		if ratio > float64(scalingSpec.MaxShardsPerNode) {
 			return noopScalingOperation(fmt.Sprintf("Scaling would violate the shard-to-node maximum (%.2f/%d).", ratio, scalingSpec.MaxShardsPerNode))
 		}
@@ -364,8 +363,12 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 	return noopScalingOperation("Nothing to do")
 }
 
+func shardToNodeRatio(shards, nodes int32) float64 {
+	return float64(shards) / float64(nodes)
+}
+
 func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards int32) int32 {
-	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	currentShardToNodeRatio := shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas)
 	if currentShardToNodeRatio <= 1 {
 		return currentDesiredNodeReplicas
 	}
@@ -373,7 +376,7 @@ func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentT
 }
 
 func calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards int32) int32 {
-	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	currentShardToNodeRatio := shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas)
 	newDesiredNodes := int32(math.Min(float64(currentDesiredNodeReplicas)-float64(1), math.Ceil(float64(currentTotalShards)/math.Ceil(currentShardToNodeRatio+0.00001))))
 	if newDesiredNodes <= 1 {
 		return 1
@@ -382,7 +385,7 @@ func calculateDecreasedNodes(currentDesiredNodeReplicas, currentTotalShards int3
 }
 
 func calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards int32) int32 {
-	currentShardToNodeRatio := float64(currentTotalShards) / float64(currentDesiredNodeReplicas)
+	currentShardToNodeRatio := shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas)
 	if currentShardToNodeRatio <= 1 {
 		return currentTotalShards
 	}
