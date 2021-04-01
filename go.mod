@@ -14,7 +14,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.19.7 // indirect
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7
-	k8s.io/code-generator v0.19.7
+	k8s.io/code-generator v0.20.5
 	k8s.io/metrics v0.19.7
 	sigs.k8s.io/controller-tools v0.4.1-0.20200911221209-6c9ddb17dfd0
 )
