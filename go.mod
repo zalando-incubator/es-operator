@@ -5,7 +5,7 @@ require (
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/jarcoal/httpmock v1.0.8
 	github.com/prometheus/client_golang v1.9.0
-	github.com/sirupsen/logrus v1.8.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/sys v0.0.0-20210113181707-4bcb84eeeb78 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
