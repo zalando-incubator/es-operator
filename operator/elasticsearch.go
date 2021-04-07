@@ -47,7 +47,8 @@ type ElasticsearchOperator struct {
 	elasticsearchEndpoint *url.URL
 	operating             map[types.UID]operatingEntry
 	sync.Mutex
-	recorder kube_record.EventRecorder
+	recorder            kube_record.EventRecorder
+	esClientRestyConfig *RestyConfig
 }
 
 type operatingEntry struct {
@@ -66,6 +67,9 @@ func NewElasticsearchOperator(
 	namespace,
 	clusterDNSZone string,
 	elasticsearchEndpoint *url.URL,
+	esClientRetryCount int,
+	esClientRetryWaitTime,
+	esClientRetryMaxWaitTime time.Duration,
 ) *ElasticsearchOperator {
 	return &ElasticsearchOperator{
 		logger: log.WithFields(
@@ -84,6 +88,11 @@ func NewElasticsearchOperator(
 		elasticsearchEndpoint: elasticsearchEndpoint,
 		operating:             make(map[types.UID]operatingEntry),
 		recorder:              createEventRecorder(client),
+		esClientRestyConfig: &RestyConfig{
+			ClientRetryCount:       esClientRetryCount,
+			ClientRetryWaitTime:    esClientRetryWaitTime,
+			ClientRetryMaxWaitTime: esClientRetryMaxWaitTime,
+		},
 	}
 }
 
@@ -497,8 +506,8 @@ func (r *EDSResource) ensureService(ctx context.Context) error {
 }
 
 // Drain drains a pod for Elasticsearch data.
-func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod) error {
-	return r.esClient.Drain(ctx, pod)
+func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod, config *RestyConfig) error {
+	return r.esClient.Drain(ctx, pod, config)
 }
 
 // PreScaleDownHook ensures that the IndexReplicas is set as defined in the EDS
@@ -641,6 +650,7 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 		interval:              o.interval,
 		logger:                logger,
 		recorder:              o.recorder,
+		esClientRestyConfig:   o.esClientRestyConfig,
 	}
 
 	rs := &EDSResource{

@@ -15,6 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	defaultRetryCount       = 999
+	defaultRetryWaitTime    = 10 * time.Second
+	defaultRetryMaxWaitTime = 30 * time.Second
+)
+
 func TestHasOwnership(t *testing.T) {
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,7 +49,8 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	faker := &clientset.Clientset{
 		Interface: fake.NewSimpleClientset(),
 	}
-	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil,
+		defaultRetryCount, defaultRetryWaitTime, defaultRetryMaxWaitTime)
 
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -59,7 +66,8 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	customEndpoint, err := url.Parse(customURL)
 	assert.NoError(t, err)
 
-	esOperator = NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", ".cluster.local.", customEndpoint)
+	esOperator = NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", ".cluster.local.", customEndpoint,
+		defaultRetryCount, defaultRetryWaitTime, defaultRetryMaxWaitTime)
 	url = esOperator.getElasticsearchEndpoint(eds)
 	assert.Equal(t, customURL, url.String())
 }
