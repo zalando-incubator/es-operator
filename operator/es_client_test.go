@@ -51,6 +51,31 @@ func TestDrain(t *testing.T) {
 	require.EqualValues(t, 3, info["PUT http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
+
+	// Test that if ES endpoint stops responding as expected Drain will return an error
+	httpmock.Reset()
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
+		httpmock.NewStringResponder(404, ``))
+
+	err = systemUnderTest.Drain(context.TODO(), &v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	},
+		&RestyConfig{
+			ClientRetryCount:       1,
+			ClientRetryWaitTime:    1 * time.Second,
+			ClientRetryMaxWaitTime: 1 * time.Second,
+		},
+	)
+
+	assert.NotNil(t, err)
 }
 
 func TestCleanup(t *testing.T) {

@@ -324,6 +324,10 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *
 			// It is expected to return (bool, error) pair. Resty will retry
 			// in case condition returns true or non nil error.
 			func(r *resty.Response) (bool, error) {
+				if !r.IsSuccess() {
+					return true, nil
+				}
+
 				var shards []ESShard
 				err := json.Unmarshal(r.Body(), &shards)
 				if err != nil {
@@ -351,6 +355,10 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *
 
 	if err != nil {
 		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("HTTP endpoint responded with not expected status code %d", resp.StatusCode())
 	}
 
 	// make sure the IP is still excluded, this could have been updated in the meantime.
