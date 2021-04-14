@@ -86,7 +86,7 @@ type StatefulResource interface {
 
 	// Drain drains a pod for data. It's expected that the method only
 	// returns after the pod has been drained.
-	Drain(ctx context.Context, pod *v1.Pod, config *RestyConfig) error
+	Drain(ctx context.Context, pod *v1.Pod, config *RetryConfig) error
 }
 
 // Operator is a generic operator that can manage Pods filtered by a selector.
@@ -96,7 +96,7 @@ type Operator struct {
 	interval              time.Duration
 	logger                *log.Entry
 	recorder              kube_record.EventRecorder
-	esClientRestyConfig   *RestyConfig
+	esClientRetryConfig   *RetryConfig
 }
 
 func (o *Operator) Run(ctx context.Context, done chan<- struct{}, sr StatefulResource) {
@@ -354,7 +354,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 	// drain Pod
 	o.recorder.Event(sr.Self(), v1.EventTypeNormal, "DrainingPod", fmt.Sprintf("Draining Pod '%s/%s'", pod.Namespace,
 		pod.Name))
-	err = sr.Drain(ctx, pod, o.esClientRestyConfig)
+	err = sr.Drain(ctx, pod, o.esClientRetryConfig)
 	if err != nil {
 		return fmt.Errorf("failed to drain Pod %s/%s: %v", pod.Namespace, pod.Name, err)
 	}
@@ -453,7 +453,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 
 			log.Infof("Draining Pod %s/%s for scaledown", pod.Namespace, pod.Name)
-			err := sr.Drain(ctx, &pod, o.esClientRestyConfig)
+			err := sr.Drain(ctx, &pod, o.esClientRetryConfig)
 			if err != nil {
 				return fmt.Errorf("failed to drain pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			}

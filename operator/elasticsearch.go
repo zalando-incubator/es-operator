@@ -48,7 +48,7 @@ type ElasticsearchOperator struct {
 	operating             map[types.UID]operatingEntry
 	sync.Mutex
 	recorder            kube_record.EventRecorder
-	esClientRestyConfig *RestyConfig
+	esClientRetryConfig *RetryConfig
 }
 
 type operatingEntry struct {
@@ -88,7 +88,7 @@ func NewElasticsearchOperator(
 		elasticsearchEndpoint: elasticsearchEndpoint,
 		operating:             make(map[types.UID]operatingEntry),
 		recorder:              createEventRecorder(client),
-		esClientRestyConfig: &RestyConfig{
+		esClientRetryConfig: &RetryConfig{
 			ClientRetryCount:       esClientRetryCount,
 			ClientRetryWaitTime:    esClientRetryWaitTime,
 			ClientRetryMaxWaitTime: esClientRetryMaxWaitTime,
@@ -506,7 +506,7 @@ func (r *EDSResource) ensureService(ctx context.Context) error {
 }
 
 // Drain drains a pod for Elasticsearch data.
-func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod, config *RestyConfig) error {
+func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod, config *RetryConfig) error {
 	return r.esClient.Drain(ctx, pod, config)
 }
 
@@ -650,7 +650,7 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 		interval:              o.interval,
 		logger:                logger,
 		recorder:              o.recorder,
-		esClientRestyConfig:   o.esClientRestyConfig,
+		esClientRetryConfig:   o.esClientRetryConfig,
 	}
 
 	rs := &EDSResource{

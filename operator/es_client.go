@@ -18,7 +18,7 @@ import (
 )
 
 // Restry Configuration
-type RestyConfig struct {
+type RetryConfig struct {
 	ClientRetryCount       int
 	ClientRetryWaitTime    time.Duration
 	ClientRetryMaxWaitTime time.Duration
@@ -91,7 +91,7 @@ func (c *ESClient) logger() *log.Entry {
 }
 
 // Drain drains data from an Elasticsearch pod.
-func (c *ESClient) Drain(ctx context.Context, pod *v1.Pod, config *RestyConfig) error {
+func (c *ESClient) Drain(ctx context.Context, pod *v1.Pod, config *RetryConfig) error {
 
 	c.logger().Info("Ensuring cluster is in green state")
 
@@ -115,6 +115,10 @@ func (c *ESClient) Drain(ctx context.Context, pod *v1.Pod, config *RestyConfig) 
 }
 
 func (c *ESClient) Cleanup(ctx context.Context) error {
+
+	// prevent ESClient from execute another operations on excludeIPList in ES
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	// 1. fetch IPs from _cat/nodes
 	nodes, err := c.GetNodes()
@@ -203,13 +207,14 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 // adds the podIP to Elasticsearch exclude._ip list
 func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 
+	// prevent ESClient from execute another operations on excludeIPList in ES
 	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	podIP := pod.Status.PodIP
 
 	esSettings, err := c.getClusterSettings()
 	if err != nil {
-		c.mux.Unlock()
 		return err
 	}
 
@@ -234,7 +239,6 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 		err = c.setExcludeIPs(strings.Join(ips, ","))
 	}
 
-	c.mux.Unlock()
 	return err
 }
 
@@ -258,8 +262,9 @@ func (c *ESClient) setExcludeIPs(ips string) error {
 }
 
 // remove the podIP from Elasticsearch exclude._ip list
-func (c *ESClient) removeFromExcludeIPList(pod *v1.Pod) error {
+func (c *ESClient) undoExcludePodIP(pod *v1.Pod) error {
 
+	// prevent ESClient from execute another operations on excludeIPList in ES
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -272,6 +277,8 @@ func (c *ESClient) removeFromExcludeIPList(pod *v1.Pod) error {
 
 	excludedIPsString := esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP
 	excludedIPs := strings.Split(excludedIPsString, ",")
+
+	// create a new array with excludedIP without provided Pod IP address
 	var newExcludedIPs []string
 	for _, excludeIP := range excludedIPs {
 		if excludeIP != podIP {
@@ -313,7 +320,7 @@ func (c *ESClient) updateAutoRebalance(value string) error {
 }
 
 // repeatedly query shard allocations to ensure success of drain operation.
-func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *RestyConfig) error {
+func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *RetryConfig) error {
 	// TODO: implement context handling
 	podIP := pod.Status.PodIP
 	resp, err := resty.New().
@@ -361,11 +368,6 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *
 		return fmt.Errorf("HTTP endpoint responded with not expected status code %d", resp.StatusCode())
 	}
 
-	// make sure the IP is still excluded, this could have been updated in the meantime.
-	if err = c.excludePodIP(pod); err != nil {
-		return err
-	}
-
 	var shards []ESShard
 	err = json.Unmarshal(resp.Body(), &shards)
 	if err != nil {
@@ -376,7 +378,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod, config *
 		if shard.IP == podIP {
 			err = fmt.Errorf("Cannot migrate shards from pod '%s' with IP '%s' within provided intervals", pod.ObjectMeta.Name, pod.Status.PodIP)
 			// if we cannot remove node than return it back active nodes pool
-			if errExclude := c.removeFromExcludeIPList(pod); errExclude != nil {
+			if errExclude := c.undoExcludePodIP(pod); errExclude != nil {
 				return fmt.Errorf("during handling request error: '%v' another error has been raised '%v'", err, errExclude)
 			}
 			return err

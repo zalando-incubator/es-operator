@@ -37,7 +37,7 @@ func TestDrain(t *testing.T) {
 			PodIP: "1.2.3.4",
 		},
 	},
-		&RestyConfig{
+		&RetryConfig{
 			ClientRetryCount:       999,
 			ClientRetryWaitTime:    10 * time.Second,
 			ClientRetryMaxWaitTime: 30 * time.Second,
@@ -68,7 +68,7 @@ func TestDrain(t *testing.T) {
 			PodIP: "1.2.3.4",
 		},
 	},
-		&RestyConfig{
+		&RetryConfig{
 			ClientRetryCount:       1,
 			ClientRetryWaitTime:    1 * time.Second,
 			ClientRetryMaxWaitTime: 1 * time.Second,
@@ -316,7 +316,7 @@ func TestExcludeIP(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRemoveFromExcludeIPList(t *testing.T) {
+func TestUndoExcludePodIP(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -348,7 +348,7 @@ func TestRemoveFromExcludeIPList(t *testing.T) {
 		Endpoint: url,
 	}
 
-	err := systemUnderTest.removeFromExcludeIPList(&v1.Pod{
+	err := systemUnderTest.undoExcludePodIP(&v1.Pod{
 		Status: v1.PodStatus{
 			PodIP: "192.168.1.2",
 		},
