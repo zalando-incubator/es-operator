@@ -11,7 +11,7 @@ require (
 	gopkg.in/resty.v1 v1.12.0
 	k8s.io/api v0.19.7
 	k8s.io/apiextensions-apiserver v0.19.7 // indirect
-	k8s.io/apimachinery v0.19.7
+	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v0.19.7
 	k8s.io/code-generator v0.19.7
 	k8s.io/metrics v0.19.7
