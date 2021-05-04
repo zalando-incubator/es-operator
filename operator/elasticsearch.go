@@ -307,7 +307,18 @@ func (r *EDSResource) PodTemplateSpec() *v1.PodTemplateSpec {
 }
 
 func (r *EDSResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
-	return r.eds.Spec.VolumeClaimTemplates
+	claims := make([]v1.PersistentVolumeClaim, 0, len(r.eds.Spec.VolumeClaimTemplates))
+	for _, template := range r.eds.Spec.VolumeClaimTemplates {
+		claims = append(claims, v1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        template.Name,
+				Labels:      template.Labels,
+				Annotations: template.Annotations,
+			},
+			Spec: template.Spec,
+		})
+	}
+	return claims
 }
 
 func (r *EDSResource) EnsureResources(ctx context.Context) error {

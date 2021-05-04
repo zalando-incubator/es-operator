@@ -47,7 +47,46 @@ type ElasticsearchDataSetSpec struct {
 	Scaling *ElasticsearchDataSetScaling `json:"scaling,omitempty"`
 
 	// Template describe the volumeClaimTemplates
-	VolumeClaimTemplates []v1.PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty" protobuf:"bytes,4,rep,name=volumeClaimTemplates"`
+	VolumeClaimTemplates []PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty" protobuf:"bytes,4,rep,name=volumeClaimTemplates"`
+}
+
+// PersistentVolumeClaim is a user's request for and claim to a persistent volume
+// +k8s:deepcopy-gen=true
+type PersistentVolumeClaim struct {
+	EmbeddedObjectMetaWithName `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Spec defines the desired characteristics of a volume requested by a pod author.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	Spec v1.PersistentVolumeClaimSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// EmbeddedObjectWithName defines the metadata which can be attached
+// to a resource. It's a slimmed down version of metav1.ObjectMeta only
+// containing name, labels and annotations.
+// +k8s:deepcopy-gen=true
+type EmbeddedObjectMetaWithName struct {
+	// Name must be unique within a namespace. Is required when creating resources, although
+	// some resources may allow a client to request the generation of an appropriate name
+	// automatically. Name is primarily intended for creation idempotence and configuration
+	// definition.
+	// Cannot be updated.
+	// More info: http://kubernetes.io/docs/user-guide/identifiers#names
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication controllers
+	// and services.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,11,rep,name=labels"`
+
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
 // EmbeddedObject defines the metadata which can be attached
