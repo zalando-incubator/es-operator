@@ -31,6 +31,12 @@ $(GENERATED): go.mod $(CRD_TYPE_SOURCE)
 	./hack/update-codegen.sh
 
 $(GENERATED_CRDS): $(GENERATED) $(CRD_SOURCES)
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1beta1,preserveUnknownFields=false paths=./pkg/apis/... output:crd:dir=docs || /bin/true || true
+	mv docs/zalando.org_elasticsearchdatasets.yaml docs/zalando.org_elasticsearchdatasets_v1beta1.yaml
+	mv docs/zalando.org_elasticsearchmetricsets.yaml docs/zalando.org_elasticsearchmetricsets_v1beta1.yaml
+	# workaround for CRD issue with k8s 1.18 & controller-gen 0.3
+	# ref: https://github.com/kubernetes/kubernetes/issues/91395
+	perl -i -p0e 's/\s*x-kubernetes-list-map-keys:.*?x-kubernetes-list-type: map//seg' docs/zalando.org_elasticsearchdatasets_v1beta1.yaml docs/zalando.org_elasticsearchmetricsets_v1beta1.yaml
 	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1 paths=./pkg/apis/... output:crd:dir=docs || /bin/true || true
 
 build.local: build/$(BINARY) $(GENERATED_CRDS)
