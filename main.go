@@ -26,22 +26,28 @@ const (
 	defaultMetricsAddress     = ":7979"
 	defaultClientGoTimeout    = 30 * time.Second
 	defaultClusterDNSZone     = "cluster.local."
+	defaultRetryCount         = "999"
+	defaultRetryWaitTime      = "10s"
+	defaultRetryMaxWaitTime   = "30s"
 )
 
 var (
 	config struct {
-		Interval              time.Duration
-		AutoscalerInterval    time.Duration
-		APIServer             *url.URL
-		PodSelectors          Labels
-		PriorityNodeSelectors Labels
-		MetricsAddress        string
-		ClientGoTimeout       time.Duration
-		Debug                 bool
-		OperatorID            string
-		Namespace             string
-		ClusterDNSZone        string
-		ElasticsearchEndpoint *url.URL
+		Interval                 time.Duration
+		AutoscalerInterval       time.Duration
+		APIServer                *url.URL
+		PodSelectors             Labels
+		PriorityNodeSelectors    Labels
+		MetricsAddress           string
+		ClientGoTimeout          time.Duration
+		Debug                    bool
+		OperatorID               string
+		Namespace                string
+		ClusterDNSZone           string
+		ElasticsearchEndpoint    *url.URL
+		EsClientRetryCount       int
+		EsClientRetryWaitTime    time.Duration
+		EsClientRetryMaxWaitTime time.Duration
 	}
 )
 
@@ -71,6 +77,9 @@ func main() {
 		URLVar(&config.ElasticsearchEndpoint)
 	kingpin.Flag("namespace", "Limit operator to a certain namespace").
 		Default(v1.NamespaceAll).StringVar(&config.Namespace)
+	kingpin.Flag("esclient-retry-count", "Count of retry operations conducted by EsClient. Used when the operator is waiting for an ES cluster condition, e.g. shards relocation.").Default(defaultRetryCount).IntVar(&config.EsClientRetryCount)
+	kingpin.Flag("esclient-retry-waittime", "Wait time between two operations of EsClient. Used when the operator is waiting for an ES cluster condition, e.g. shards relocation.").Default(defaultRetryWaitTime).DurationVar(&config.EsClientRetryWaitTime)
+	kingpin.Flag("esclient-retry-max-waittime", "Max wait time between two operations of EsClient. Used when the operator is waiting for an ES cluster condition, e.g. shards relocation.").Default(defaultRetryMaxWaitTime).DurationVar(&config.EsClientRetryMaxWaitTime)
 
 	kingpin.Parse()
 
@@ -98,6 +107,9 @@ func main() {
 		config.Namespace,
 		config.ClusterDNSZone,
 		config.ElasticsearchEndpoint,
+		config.EsClientRetryCount,
+		config.EsClientRetryWaitTime,
+		config.EsClientRetryMaxWaitTime,
 	)
 
 	go handleSigterm(cancel)
