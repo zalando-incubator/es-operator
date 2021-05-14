@@ -26,8 +26,9 @@ var (
 
 // ESClient is a pod drainer which can drain data from Elasticsearch pods.
 type ESClient struct {
-	Endpoint *url.URL
-	mux      sync.Mutex
+	Endpoint             *url.URL
+	mux                  sync.Mutex
+	excludeSystemIndices bool
 }
 
 // ESIndex represent an index to be used in public APIs
@@ -388,9 +389,13 @@ func (c *ESClient) GetIndices() ([]ESIndex, error) {
 		return nil, err
 	}
 
-	// HACK: after-the-fact conversion of strings to integers from ES response.
 	returnStruct := make([]ESIndex, 0, len(esIndices))
 	for _, index := range esIndices {
+		// ignore system indices
+		if c.excludeSystemIndices && index.Index[0:1] == "." {
+			continue
+		}
+		// HACK: after-the-fact conversion of strings to integers from ES response.
 		primaries, err := strconv.Atoi(index.Primaries)
 		if err != nil {
 			return nil, err

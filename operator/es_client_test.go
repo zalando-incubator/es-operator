@@ -129,10 +129,10 @@ func TestGetIndices(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	require.EqualValues(t, 3, len(indices))
-	require.EqualValues(t, "a", indices[0].Index)
-	require.EqualValues(t, 2, indices[0].Primaries)
-	require.EqualValues(t, 1, indices[0].Replicas)
+	require.EqualValues(t, 3, len(indices), indices)
+	require.EqualValues(t, "a", indices[0].Index, indices)
+	require.EqualValues(t, 2, indices[0].Primaries, indices)
+	require.EqualValues(t, 1, indices[0].Replicas, indices)
 
 }
 
@@ -238,4 +238,24 @@ func TestEnsureGreenClusterState(t *testing.T) {
 	err := systemUnderTest.ensureGreenClusterState()
 
 	assert.Error(t, err)
+}
+
+func TestExcludeSystemIndices(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/indices",
+		httpmock.NewStringResponder(200, `[{"index":".system","pri":"1","rep":"1"},{"index":"a","pri":"1","rep":"1"}]`))
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint:             url,
+		excludeSystemIndices: true,
+	}
+	indices, err := systemUnderTest.GetIndices()
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(indices), indices)
+	assert.Equal(t, "a", indices[0].Index, indices)
+
 }

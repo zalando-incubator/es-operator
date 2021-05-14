@@ -46,6 +46,9 @@ spec:
         spec:
           description: ElasticsearchDataSetSpec is the spec part of the Elasticsearch dataset.
           properties:
+            excludeSystemIndices:
+              description: Exclude management of System Indices on this Data Set. Defaults to false
+              type: boolean
             replicas:
               description: Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
               format: int32
