@@ -392,7 +392,7 @@ func (c *ESClient) GetIndices() ([]ESIndex, error) {
 	returnStruct := make([]ESIndex, 0, len(esIndices))
 	for _, index := range esIndices {
 		// ignore system indices
-		if c.excludeSystemIndices && index.Index[0:1] == "." {
+		if c.excludeSystemIndices && strings.HasPrefix(index.Index, ".") {
 			continue
 		}
 		// HACK: after-the-fact conversion of strings to integers from ES response.
