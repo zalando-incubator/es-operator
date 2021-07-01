@@ -9,10 +9,10 @@ require (
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/resty.v1 v1.12.0
-	k8s.io/api v0.19.7
+	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.19.7 // indirect
-	k8s.io/apimachinery v0.19.7
-	k8s.io/client-go v0.19.7
+	k8s.io/apimachinery v0.21.2
+	k8s.io/client-go v0.21.2
 	k8s.io/code-generator v0.19.7
 	k8s.io/metrics v0.19.7
 	sigs.k8s.io/controller-tools v0.4.1-0.20200911221209-6c9ddb17dfd0
