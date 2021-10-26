@@ -10,7 +10,7 @@ This is an operator for running Elasticsearch in Kubernetes with focus on operat
 
 ## Compatibility
 
-The ES-Operator has been tested with Elasticsearch 6.x and 7.0.
+The ES-Operator has been tested with Elasticsearch 6.x and 7.x.
 
 ## How it works
 
