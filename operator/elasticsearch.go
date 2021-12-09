@@ -235,7 +235,8 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 					endpoint := o.getElasticsearchEndpoint(es.ElasticsearchDataSet)
 
 					client := &ESClient{
-						Endpoint: endpoint,
+						Endpoint:             endpoint,
+						excludeSystemIndices: es.ElasticsearchDataSet.Spec.ExcludeSystemIndices,
 					}
 
 					err := o.scaleEDS(ctx, es.ElasticsearchDataSet, es, client)
