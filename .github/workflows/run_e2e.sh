@@ -30,6 +30,7 @@ done
 # wait for es-operator Pod to be ready
 while [ "$(kubectl -n "$namespace" get pod -l application=es-operator -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')" != "True" ]; do
     echo "Waiting for ready 'es-operator' pod"
+    kubectl -n "$namespace" describe pod -l application=es-operator
     sleep 5
 done
 # wait for es master pods to be ready

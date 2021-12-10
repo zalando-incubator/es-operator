@@ -29,11 +29,11 @@ jobs:
         skipClusterCreation: "true"
     - name: e2e tests
       run: |
-        ./.github/workflows/kind-with-registry.sh
+        bash -x ./.github/workflows/kind-with-registry.sh
         docker tag es-operator:local localhost:5000/es-operator:local
         docker push localhost:5000/es-operator:local
 
-        ./.github/workflows/run_e2e.sh
+        bash -x ./.github/workflows/run_e2e.sh
     - name: documentation tests
       run: |
         grep '^kubectl apply' docs/GETTING_STARTED.md | sh
