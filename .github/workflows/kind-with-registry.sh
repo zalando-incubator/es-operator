@@ -23,6 +23,13 @@ nodes:
     nodeRegistration:
       kubeletExtraArgs:
         cpu-cfs-quota: "false"
+- role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        cpu-cfs-quota: "false"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]

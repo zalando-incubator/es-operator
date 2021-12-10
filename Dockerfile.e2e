@@ -4,4 +4,4 @@ LABEL maintainer="Team Lens @ Zalando SE <team-lens@zalando.de>"
 # add binary
 ADD build/linux/e2e /
 
-ENTRYPOINT ["/e2e", "-test.v", "-test.parallel", "64"]
+ENTRYPOINT ["/e2e", "-test.v", "-test.parallel", "1"]
