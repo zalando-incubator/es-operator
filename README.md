@@ -207,7 +207,6 @@ can start the operator with the following flags:
 
 ```bash
 $ ./build/es-operator \
-  --priority-node-selector=lifecycle-status=ready \
   --apiserver=http://127.0.0.1:8001 \
   --operator-id=my-operator \
   --elasticsearch-endpoint=http://127.0.0.1:8001/api/v1/namespaces/default/services/elasticsearch:9200/proxy

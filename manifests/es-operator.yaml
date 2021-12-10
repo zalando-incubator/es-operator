@@ -23,7 +23,6 @@ spec:
       - name: es-operator
         image: {{{IMAGE}}}
         args:
-        - --priority-node-selector=lifecycle-status=ready
         - --operator-id={{{OPERATOR_ID}}}
         - --interval=30s
         - --namespace={{{NAMESPACE}}}
