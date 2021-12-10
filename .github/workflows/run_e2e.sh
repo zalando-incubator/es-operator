@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -o errexit
 
 ES_OPERATOR_IMAGE="${ES_OPERATOR_IMAGE:-"localhost:5000/es-operator:local"}"
 namespace="es-operator-e2e"
