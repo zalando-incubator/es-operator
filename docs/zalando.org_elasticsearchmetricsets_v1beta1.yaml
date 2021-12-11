@@ -18,19 +18,25 @@ spec:
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: ElasticsearchMetricSet is the metrics holding section of the ElasticsearchDataSet resource.
+      description: ElasticsearchMetricSet is the metrics holding section of the ElasticsearchDataSet
+        resource.
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         metrics:
           items:
-            description: ElasticsearchMetric is the single metric sample of the ElasticsearchDataSet resource.
+            description: ElasticsearchMetric is the single metric sample of the ElasticsearchDataSet
+              resource.
             properties:
               timestamp:
                 format: date-time
