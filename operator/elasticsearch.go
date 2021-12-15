@@ -16,7 +16,7 @@ import (
 	"github.com/zalando-incubator/es-operator/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	pv1beta1 "k8s.io/api/policy/v1beta1"
+	pv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -345,10 +345,10 @@ func (r *EDSResource) Self() runtime.Object {
 // ensurePodDisruptionBudget creates a PodDisruptionBudget for the
 // ElasticsearchDataSet if it doesn't already exist.
 func (r *EDSResource) ensurePodDisruptionBudget(ctx context.Context) error {
-	var pdb *pv1beta1.PodDisruptionBudget
+	var pdb *pv1.PodDisruptionBudget
 	var err error
 
-	pdb, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(r.eds.Namespace).Get(ctx, r.eds.Name, metav1.GetOptions{})
+	pdb, err = r.kube.PolicyV1().PodDisruptionBudgets(r.eds.Namespace).Get(ctx, r.eds.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf(
@@ -378,7 +378,7 @@ func (r *EDSResource) ensurePodDisruptionBudget(ctx context.Context) error {
 	if pdb == nil {
 		createPDB = true
 		maxUnavailable := intstr.FromInt(0)
-		pdb = &pv1beta1.PodDisruptionBudget{
+		pdb = &pv1.PodDisruptionBudget{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      r.eds.Name,
 				Namespace: r.eds.Namespace,
@@ -391,7 +391,7 @@ func (r *EDSResource) ensurePodDisruptionBudget(ctx context.Context) error {
 					},
 				},
 			},
-			Spec: pv1beta1.PodDisruptionBudgetSpec{
+			Spec: pv1.PodDisruptionBudgetSpec{
 				MaxUnavailable: &maxUnavailable,
 			},
 		}
@@ -404,7 +404,7 @@ func (r *EDSResource) ensurePodDisruptionBudget(ctx context.Context) error {
 
 	if createPDB {
 		var err error
-		_, err = r.kube.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Create(ctx, pdb, metav1.CreateOptions{})
+		_, err = r.kube.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(ctx, pdb, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf(
 				"failed to create PodDisruptionBudget for %s %s/%s: %v",
