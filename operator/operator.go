@@ -625,8 +625,8 @@ func waitForStableStatefulSet(ctx context.Context, client kubernetes.Interface, 
 		if newSts.Spec.Replicas == nil {
 			return backoff.Permanent(fmt.Errorf("cannot determine desired replicas from spec"))
 		}
-		log.Infof("StatefulSet %s/%s has %d/%d ready replicas", newSts.Namespace, newSts.Name, newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 		if *newSts.Spec.Replicas != newSts.Status.ReadyReplicas {
+			log.Infof("Waiting for stabilization: StatefulSet %s/%s has %d/%d ready replicas", newSts.Namespace, newSts.Name, newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 			return fmt.Errorf("%d/%d replicas ready", newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 		}
 
