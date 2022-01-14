@@ -555,7 +555,7 @@ func (o *Operator) getNodes(ctx context.Context) (map[string]v1.Node, map[string
 	priorityNodesMap := make(map[string]v1.Node, len(nodes.Items))
 	unschedulableNodesMap := make(map[string]v1.Node, len(nodes.Items))
 	for _, node := range nodes.Items {
-		if len(node.Labels) > 0 && labels.AreLabelsInWhiteList(o.priorityNodeSelectors, labels.Set(node.Labels)) {
+		if len(node.Labels) > 0 && isSubset(o.priorityNodeSelectors, labels.Set(node.Labels)) {
 			priorityNodesMap[node.Name] = node
 		}
 
@@ -626,8 +626,8 @@ func waitForStableStatefulSet(ctx context.Context, client kubernetes.Interface, 
 		if newSts.Spec.Replicas == nil {
 			return backoff.Permanent(fmt.Errorf("cannot determine desired replicas from spec"))
 		}
-		log.Infof("StatefulSet %s/%s has %d/%d ready replicas", newSts.Namespace, newSts.Name, newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 		if *newSts.Spec.Replicas != newSts.Status.ReadyReplicas {
+			log.Infof("Waiting for stabilization: StatefulSet %s/%s has %d/%d ready replicas", newSts.Namespace, newSts.Name, newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 			return fmt.Errorf("%d/%d replicas ready", newSts.Status.ReadyReplicas, *newSts.Spec.Replicas)
 		}
 
@@ -796,4 +796,22 @@ func isOwnedReference(owner StatefulResource, dependent metav1.ObjectMeta) bool 
 		}
 	}
 	return false
+}
+
+// https://github.com/kubernetes/kubernetes/pull/95179
+func isSubset(subSet, superSet labels.Set) bool {
+	if len(superSet) == 0 {
+		return true
+	}
+
+	for k, v := range subSet {
+		value, ok := superSet[k]
+		if !ok {
+			return false
+		}
+		if value != v {
+			return false
+		}
+	}
+	return true
 }
