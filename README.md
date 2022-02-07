@@ -223,4 +223,3 @@ We are not the only ones providing an Elasticsearch operator for Kubernetes. Her
 
 * [upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator) - offers a higher level abstraction of the custom resource definition of an Elasticsearch cluster, snapshotting support, but to our knowledge no scaling support and no draining of nodes.
 * [jetstack/navigator](https://github.com/jetstack/navigator) - operator that can handle both Cassandra and Elasticsearch clusters, but doesn't offer auto-scaling or draining of nodes.
-* [cloud-on-k8s](https://github.com/elastic/cloud-on-k8s) - official elastic operator.
