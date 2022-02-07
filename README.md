@@ -8,6 +8,12 @@
 
 This is an operator for running Elasticsearch in Kubernetes with focus on operational aspects, like safe draining and offering auto-scaling capabilities for Elasticsearch data nodes, rather than just abstracting manifest definitions.
 
+## License
+
+Starting with `v0.1.3` the ES-Operator is dual-licensed under [MIT](/LICENSE.MIT.txt) and [Apache-2.0](/LICENSE.Apache2.txt) license. You can choose between one of them if you use this work.
+
+`SPDX-License-Identifier: MIT OR Apache-2.0`
+
 ## Compatibility
 
 The ES-Operator has been tested with Elasticsearch 6.x and 7.x.
@@ -223,3 +229,4 @@ We are not the only ones providing an Elasticsearch operator for Kubernetes. Her
 
 * [upmc-enterprises/elasticsearch-operator](https://github.com/upmc-enterprises/elasticsearch-operator) - offers a higher level abstraction of the custom resource definition of an Elasticsearch cluster, snapshotting support, but to our knowledge no scaling support and no draining of nodes.
 * [jetstack/navigator](https://github.com/jetstack/navigator) - operator that can handle both Cassandra and Elasticsearch clusters, but doesn't offer auto-scaling or draining of nodes.
+
