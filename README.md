@@ -62,6 +62,7 @@ spec:
 | Key      | Description   | Type |
 |----------|---------------|---------|
 | spec.replicas | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size. | Int |
+| spec.excludeSystemIndices | Enable or disable inclusion of system indices like '.kibana' when calculating shard-per-node ratio and scaling index replica counts. Those are usually managed by Elasticsearch internally. Default is false for backwards compatibility | Boolean |
 | spec.scaling.enabled | Enable or disable auto-scaling. May be necessary to enforce manual scaling. | Boolean |
 | spec.scaling.minReplicas | Minimum Pod replicas. Lower bound (inclusive) when scaling down.  | Int |
 | spec.scaling.maxReplicas | Maximum Pod replicas. Upper bound (inclusive) when scaling up.  | Int |
