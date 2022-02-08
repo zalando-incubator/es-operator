@@ -2,8 +2,11 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -28,11 +31,18 @@ func TestDrain(t *testing.T) {
 	systemUnderTest := &ESClient{
 		Endpoint: url,
 	}
+
 	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
 		},
-	})
+	},
+		&RetryConfig{
+			ClientRetryCount:       999,
+			ClientRetryWaitTime:    10 * time.Second,
+			ClientRetryMaxWaitTime: 30 * time.Second,
+		},
+	)
 
 	assert.NoError(t, err)
 
@@ -41,6 +51,31 @@ func TestDrain(t *testing.T) {
 	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
+
+	// Test that if ES endpoint stops responding as expected Drain will return an error
+	httpmock.Reset()
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
+		httpmock.NewStringResponder(404, ``))
+
+	err = systemUnderTest.Drain(context.TODO(), &v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	},
+		&RetryConfig{
+			ClientRetryCount:       1,
+			ClientRetryWaitTime:    1 * time.Second,
+			ClientRetryMaxWaitTime: 1 * time.Second,
+		},
+	)
+
+	assert.NotNil(t, err)
 }
 
 func TestCleanup(t *testing.T) {
@@ -257,5 +292,86 @@ func TestExcludeSystemIndices(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(indices), indices)
 	assert.Equal(t, "a", indices[0].Index, indices)
+}
 
+func TestExcludeIP(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{"persistent":{},"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"},"allocation":{"exclude":{"_ip":"192.168.1.1,192.168.1.3"}}}}}}`))
+
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		func(req *http.Request) (*http.Response, error) {
+
+			update := make(map[string]map[string]string)
+			if err := json.NewDecoder(req.Body).Decode(&update); err != nil {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			if update["transient"]["cluster.routing.allocation.exclude._ip"] != "192.168.1.1,192.168.1.2,192.168.1.3" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			resp, err := httpmock.NewJsonResponse(200, "")
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), nil
+			}
+			return resp, nil
+		},
+	)
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	err := systemUnderTest.excludePodIP(&v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "192.168.1.2",
+		},
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestUndoExcludePodIP(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(200, `{"persistent":{},"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"},"allocation":{"exclude":{"_ip":"192.168.1.1,192.168.1.2,192.168.1.3"}}}}}}`))
+
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		func(req *http.Request) (*http.Response, error) {
+
+			update := make(map[string]map[string]string)
+			if err := json.NewDecoder(req.Body).Decode(&update); err != nil {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			if update["transient"]["cluster.routing.allocation.exclude._ip"] != "192.168.1.1,192.168.1.3" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			resp, err := httpmock.NewJsonResponse(200, "")
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), nil
+			}
+			return resp, nil
+		},
+	)
+
+	url, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: url,
+	}
+
+	err := systemUnderTest.undoExcludePodIP(&v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "192.168.1.2",
+		},
+	})
+
+	assert.NoError(t, err)
 }
