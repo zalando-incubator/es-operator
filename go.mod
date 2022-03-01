@@ -7,15 +7,14 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/tools v0.1.1 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/resty.v1 v1.12.0
-	k8s.io/api v0.21.5
+	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.21.5 // indirect
-	k8s.io/apimachinery v0.21.5
-	k8s.io/client-go v0.21.5
-	k8s.io/code-generator v0.21.5
-	k8s.io/metrics v0.21.5
+	k8s.io/apimachinery v0.23.4
+	k8s.io/client-go v0.23.4
+	k8s.io/code-generator v0.23.4
+	k8s.io/metrics v0.23.4
 	sigs.k8s.io/controller-tools v0.4.1-0.20200911221209-6c9ddb17dfd0
 )
 
