@@ -88,13 +88,13 @@ type Cluster struct {
 	Routing Routing `json:"routing,omitempty"`
 }
 
-type Transient struct {
+type ClusterSettings struct {
 	Cluster Cluster `json:"cluster"`
 }
 
 // ESSettings represent response from _cluster/settings
 type ESSettings struct {
-	Transient Transient `json:"transient,omitempty"`
+	Transient ClusterSettings `json:"transient,omitempty"`
 }
 
 func (c *ESClient) logger() *log.Entry {
@@ -252,7 +252,7 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 
 func (c *ESClient) setExcludeIPs(ips string) error {
 	esSettings := ESSettings{
-		Transient: Transient{Cluster: Cluster{Routing: Routing{Allocation: Allocation{Exclude: Exclude{IP: null.StringFromPtr(&ips)}}}}},
+		Transient: ClusterSettings{Cluster: Cluster{Routing: Routing{Allocation: Allocation{Exclude: Exclude{IP: null.StringFromPtr(&ips)}}}}},
 	}
 	resp, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
@@ -269,7 +269,7 @@ func (c *ESClient) setExcludeIPs(ips string) error {
 
 func (c *ESClient) updateAutoRebalance(value string) error {
 	esSettings := ESSettings{
-		Transient: Transient{
+		Transient: ClusterSettings{
 			Cluster: Cluster{Routing: Routing{Rebalance: Rebalance{Enable: null.StringFromPtr(&value)}}},
 		},
 	}
