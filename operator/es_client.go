@@ -94,7 +94,33 @@ type ClusterSettings struct {
 
 // ESSettings represent response from _cluster/settings
 type ESSettings struct {
-	Transient ClusterSettings `json:"transient,omitempty"`
+	Transient  ClusterSettings `json:"transient,omitempty"`
+	Persistent ClusterSettings `json:"persistent,omitempty"`
+}
+
+func (esSettings *ESSettings) copyNonEmtpyTransientSettings() {
+	if value := esSettings.GetTransientRebalance().ValueOrZero(); value != "" {
+		esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
+	}
+	if value := esSettings.GetTransientExcludeIPs().ValueOrZero(); value != "" {
+		esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&value)
+	}
+}
+
+func (esSettings *ESSettings) GetTransientExcludeIPs() null.String {
+	return esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP
+}
+
+func (esSettings *ESSettings) GetPersistentExcludeIPs() null.String {
+	return esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP
+}
+
+func (esSettings *ESSettings) GetTransientRebalance() null.String {
+	return esSettings.Transient.Cluster.Routing.Rebalance.Enable
+}
+
+func (esSettings *ESSettings) GetPersistentRebalance() null.String {
+	return esSettings.Persistent.Cluster.Routing.Rebalance.Enable
 }
 
 func (c *ESClient) logger() *log.Entry {
@@ -113,7 +139,12 @@ func (c *ESClient) Drain(ctx context.Context, pod *v1.Pod) error {
 		return err
 	}
 	c.logger().Info("Disabling auto-rebalance")
-	err = c.updateAutoRebalance("none")
+	esSettings, err := c.getClusterSettings()
+	if err != nil {
+		return err
+	}
+
+	err = c.updateAutoRebalance("none", esSettings)
 	if err != nil {
 		return err
 	}
@@ -142,7 +173,7 @@ func (c *ESClient) Cleanup(ctx context.Context) error {
 	}
 
 	// 3. clean up exclude._ip settings based on known IPs from (1)
-	excludedIPsString := esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP.ValueOrZero()
+	excludedIPsString := esSettings.GetPersistentExcludeIPs().ValueOrZero()
 	excludedIPs := strings.Split(excludedIPsString, ",")
 	var newExcludedIPs []string
 	for _, excludeIP := range excludedIPs {
@@ -160,15 +191,15 @@ func (c *ESClient) Cleanup(ctx context.Context) error {
 		c.logger().Infof("Setting exclude list to '%s'", strings.Join(newExcludedIPs, ","))
 
 		// 4. update exclude._ip setting
-		err = c.setExcludeIPs(newExcludedIPsString)
+		err = c.setExcludeIPs(newExcludedIPsString, esSettings)
 		if err != nil {
 			return err
 		}
 	}
 
-	if esSettings.Transient.Cluster.Routing.Rebalance.Enable.ValueOrZero() != "all" {
+	if esSettings.GetPersistentRebalance().ValueOrZero() != "all" {
 		c.logger().Info("Enabling auto-rebalance")
-		return c.updateAutoRebalance("all")
+		return c.updateAutoRebalance("all", esSettings)
 	}
 	return nil
 }
@@ -210,6 +241,7 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	if err != nil {
 		return nil, err
 	}
+	esSettings.copyNonEmtpyTransientSettings()
 	return &esSettings, nil
 }
 
@@ -226,7 +258,7 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 		return err
 	}
 
-	excludeString := esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP.ValueOrZero()
+	excludeString := esSettings.GetPersistentExcludeIPs().ValueOrZero()
 
 	// add pod IP to exclude list
 	ips := []string{}
@@ -243,20 +275,18 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 	if !foundPodIP {
 		ips = append(ips, podIP)
 		sort.Strings(ips)
-		err = c.setExcludeIPs(strings.Join(ips, ","))
+		err = c.setExcludeIPs(strings.Join(ips, ","), esSettings)
 	}
 
 	c.mux.Unlock()
 	return err
 }
 
-func (c *ESClient) setExcludeIPs(ips string) error {
-	esSettings := ESSettings{
-		Transient: ClusterSettings{Cluster: Cluster{Routing: Routing{Allocation: Allocation{Exclude: Exclude{IP: null.StringFromPtr(&ips)}}}}},
-	}
+func (c *ESClient) setExcludeIPs(ips string, originalESSettings *ESSettings) error {
+	originalESSettings.updateExcludeIps(ips)
 	resp, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(esSettings).
+		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
 	if err != nil {
 		return err
@@ -267,15 +297,16 @@ func (c *ESClient) setExcludeIPs(ips string) error {
 	return nil
 }
 
-func (c *ESClient) updateAutoRebalance(value string) error {
-	esSettings := ESSettings{
-		Transient: ClusterSettings{
-			Cluster: Cluster{Routing: Routing{Rebalance: Rebalance{Enable: null.StringFromPtr(&value)}}},
-		},
-	}
+func (esSettings *ESSettings) updateExcludeIps(ips string) {
+	esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
+	esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&ips)
+}
+
+func (c *ESClient) updateAutoRebalance(value string, originalESSettings *ESSettings) error {
+	originalESSettings.updateRebalance(value)
 	resp, err := resty.New().R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(esSettings).
+		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
 	if err != nil {
 		return err
@@ -284,6 +315,11 @@ func (c *ESClient) updateAutoRebalance(value string) error {
 		return fmt.Errorf("code status %d - %s", resp.StatusCode(), resp.Body())
 	}
 	return nil
+}
+
+func (esSettings *ESSettings) updateRebalance(value string) {
+	esSettings.Transient.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(nil)
+	esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
 }
 
 // repeatedly query shard allocations to ensure success of drain operation.

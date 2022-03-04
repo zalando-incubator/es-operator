@@ -2,6 +2,9 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -16,7 +19,7 @@ func TestDrain(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
-		httpmock.NewStringResponder(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
+		httpmock.NewStringResponder(200, `{"persistent":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
 	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
 		httpmock.NewStringResponder(200, `{}`))
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
@@ -24,9 +27,9 @@ func TestDrain(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
 		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
 
-	url, _ := url.Parse("http://elasticsearch:9200")
+	esUrl, _ := url.Parse("http://elasticsearch:9200")
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint: esUrl,
 	}
 	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
@@ -40,6 +43,67 @@ func TestDrain(t *testing.T) {
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
 	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
+}
+
+func TestDrainWithTransientSettings(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	var intermediateClusterSettings []byte
+	expectedSequenceOfExcludeIPs := []string{"", "1.2.3.4"}
+	var numCalls = 0
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		func(request *http.Request) (*http.Response, error) {
+			if numCalls == 0 {
+				return httpmock.NewStringResponse(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`), nil
+			} else {
+				return httpmock.NewStringResponse(200, string(intermediateClusterSettings)), nil
+			}
+		})
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		func(request *http.Request) (*http.Response, error) {
+			var esSettings ESSettings
+			bodyReader, _ := request.GetBody()
+			_ = json.NewDecoder(bodyReader).Decode(&esSettings)
+
+			if numCalls == 0 {
+				bodyReader, _ = request.GetBody()
+				intermediateClusterSettings, _ = ioutil.ReadAll(bodyReader)
+			}
+
+			if esSettings.GetTransientExcludeIPs().ValueOrZero() != "" || esSettings.GetTransientRebalance().ValueOrZero() != "" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			if esSettings.GetPersistentExcludeIPs().ValueOrZero() != expectedSequenceOfExcludeIPs[numCalls] || esSettings.GetPersistentRebalance().ValueOrZero() != "none" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			numCalls = numCalls + 1
+			return httpmock.NewStringResponse(200, `{}`), nil
+		})
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
+		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
+
+	esUrl, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: esUrl,
+	}
+	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	})
+
+	assert.NoError(t, err)
+
+	info := httpmock.GetCallCountInfo()
+	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
+	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
 }
 
