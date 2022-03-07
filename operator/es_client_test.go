@@ -11,6 +11,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -321,4 +322,78 @@ func TestExcludeSystemIndices(t *testing.T) {
 	assert.Equal(t, 1, len(indices), indices)
 	assert.Equal(t, "a", indices[0].Index, indices)
 
+}
+
+func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
+	type fields struct {
+		Transient  ClusterSettings
+		Persistent ClusterSettings
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		expected ESSettings
+	}{
+		{
+			name: "null transient settings should remain as null persistent settings",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+			},
+			expected: ESSettings{
+				Transient: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+				Persistent: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+			},
+		},
+		{
+			name: "copy over non empty transient cluster rebalance settings",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFromPtr(nil)}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
+			},
+		},
+		{
+			name: "copy over non empty transient exclude ips string",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+			},
+		},
+		{
+			name: "merge existing persistent exclude ips with transient exclude ips",
+			fields: fields{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("11.21.31.41")}}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,11.21.31.41")}}}}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			esSettings := &ESSettings{
+				Transient:  tt.fields.Transient,
+				Persistent: tt.fields.Persistent,
+			}
+			esSettings.MergeNonEmtpyTransientSettings()
+			assert.Equal(t, tt.expected.GetPersistentRebalance(), esSettings.GetPersistentRebalance())
+			assert.Equal(t, tt.expected.GetPersistentExcludeIPs(), esSettings.GetPersistentExcludeIPs())
+		})
+	}
 }

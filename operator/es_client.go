@@ -98,12 +98,21 @@ type ESSettings struct {
 	Persistent ClusterSettings `json:"persistent,omitempty"`
 }
 
-func (esSettings *ESSettings) copyNonEmtpyTransientSettings() {
+func (esSettings *ESSettings) MergeNonEmtpyTransientSettings() {
 	if value := esSettings.GetTransientRebalance().ValueOrZero(); value != "" {
 		esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
+		esSettings.Transient.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(nil)
 	}
-	if value := esSettings.GetTransientExcludeIPs().ValueOrZero(); value != "" {
-		esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&value)
+
+	if transientExcludeIps := esSettings.GetTransientExcludeIPs().ValueOrZero(); transientExcludeIps != "" {
+		persistentExcludeIps := esSettings.GetPersistentExcludeIPs().ValueOrZero()
+		if persistentExcludeIps == "" {
+			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&transientExcludeIps)
+		} else {
+			mergedIps := null.StringFrom(transientExcludeIps + "," + persistentExcludeIps)
+			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = mergedIps
+		}
+		esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
 	}
 }
 
@@ -241,7 +250,7 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	esSettings.copyNonEmtpyTransientSettings()
+	esSettings.MergeNonEmtpyTransientSettings()
 	return &esSettings, nil
 }
 
@@ -298,7 +307,6 @@ func (c *ESClient) setExcludeIPs(ips string, originalESSettings *ESSettings) err
 }
 
 func (esSettings *ESSettings) updateExcludeIps(ips string) {
-	esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
 	esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&ips)
 }
 
@@ -318,7 +326,6 @@ func (c *ESClient) updateAutoRebalance(value string, originalESSettings *ESSetti
 }
 
 func (esSettings *ESSettings) updateRebalance(value string) {
-	esSettings.Transient.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(nil)
 	esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
 }
 
