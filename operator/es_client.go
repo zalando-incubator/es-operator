@@ -98,7 +98,7 @@ type ESSettings struct {
 	Persistent ClusterSettings `json:"persistent,omitempty"`
 }
 
-func (esSettings *ESSettings) MergeNonEmtpyTransientSettings() {
+func (esSettings *ESSettings) MergeNonEmptyTransientSettings() {
 	if value := esSettings.GetTransientRebalance().ValueOrZero(); value != "" {
 		esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
 		esSettings.Transient.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(nil)
@@ -250,7 +250,7 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	esSettings.MergeNonEmtpyTransientSettings()
+	esSettings.MergeNonEmptyTransientSettings()
 	return &esSettings, nil
 }
 

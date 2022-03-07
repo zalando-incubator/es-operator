@@ -14,7 +14,6 @@ persistent settings. To avoid cluster inconsistencies with the new es-operator, 
 before deploying the new es-operator.
 
 1. Follow the
-   official [Transient settings migration guide](https://docs.google.com/document/d/14SUV7Fi2FV2c1gSGP3VLIf-MJEMxlr7zCK_HmBCvB4U/edit?usp=sharing)
-   .
+   official [Transient settings migration guide](https://www.elastic.co/guide/en/elasticsearch/reference/8.1/transient-settings-migration-guide.html).
 2. Update any custom scripts that are still operating on transient settings.
 3. Deploy the new es-operator.

@@ -391,7 +391,7 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 				Transient:  tt.fields.Transient,
 				Persistent: tt.fields.Persistent,
 			}
-			esSettings.MergeNonEmtpyTransientSettings()
+			esSettings.MergeNonEmptyTransientSettings()
 			assert.Equal(t, tt.expected.GetPersistentRebalance(), esSettings.GetPersistentRebalance())
 			assert.Equal(t, tt.expected.GetPersistentExcludeIPs(), esSettings.GetPersistentExcludeIPs())
 		})
