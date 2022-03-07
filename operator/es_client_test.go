@@ -57,9 +57,8 @@ func TestDrainWithTransientSettings(t *testing.T) {
 		func(request *http.Request) (*http.Response, error) {
 			if numCalls == 0 {
 				return httpmock.NewStringResponse(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`), nil
-			} else {
-				return httpmock.NewStringResponse(200, string(intermediateClusterSettings)), nil
 			}
+			return httpmock.NewStringResponse(200, string(intermediateClusterSettings)), nil
 		})
 	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
 		func(request *http.Request) (*http.Response, error) {

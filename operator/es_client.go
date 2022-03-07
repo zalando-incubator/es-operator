@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/guregu/null.v4"
 	"net/http"
 	"net/url"
 	"sort"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/guregu/null.v4"
 	"gopkg.in/resty.v1"
 	v1 "k8s.io/api/core/v1"
 )
