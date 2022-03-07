@@ -42,7 +42,7 @@ func TestDrain(t *testing.T) {
 	info := httpmock.GetCallCountInfo()
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
 	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
-	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
 }
 
