@@ -98,6 +98,24 @@ type ESSettings struct {
 	Persistent ClusterSettings `json:"persistent,omitempty"`
 }
 
+func deduplicateIPs(excludedIPsString string) string {
+	if excludedIPsString == "" {
+		return ""
+	}
+
+	uniqueIPsMap := make(map[string]struct{})
+	uniqueIPsList := []string{}
+	excludedIPs := strings.Split(excludedIPsString, ",")
+	for _, excludedIP := range excludedIPs {
+		if _, ok := uniqueIPsMap[excludedIP]; !ok {
+			uniqueIPsMap[excludedIP] = struct{}{}
+			uniqueIPsList = append(uniqueIPsList, excludedIP)
+		}
+	}
+
+	return strings.Join(uniqueIPsList, ",")
+}
+
 func (esSettings *ESSettings) MergeNonEmptyTransientSettings() {
 	if value := esSettings.GetTransientRebalance().ValueOrZero(); value != "" {
 		esSettings.Persistent.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(&value)
@@ -109,7 +127,7 @@ func (esSettings *ESSettings) MergeNonEmptyTransientSettings() {
 		if persistentExcludeIps == "" {
 			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&transientExcludeIps)
 		} else {
-			mergedIps := null.StringFrom(transientExcludeIps + "," + persistentExcludeIps)
+			mergedIps := null.StringFrom(deduplicateIPs(transientExcludeIps + "," + persistentExcludeIps))
 			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = mergedIps
 		}
 		esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
