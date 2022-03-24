@@ -13,7 +13,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/guregu/null.v4"
+	"github.com/zalando-incubator/es-operator/operator/null"
 	"gopkg.in/resty.v1"
 	v1 "k8s.io/api/core/v1"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
+	"github.com/zalando-incubator/es-operator/operator/null"
 	v1 "k8s.io/api/core/v1"
 )
 
