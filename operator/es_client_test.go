@@ -2,12 +2,16 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zalando-incubator/es-operator/operator/null"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -16,7 +20,7 @@ func TestDrain(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
-		httpmock.NewStringResponder(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
+		httpmock.NewStringResponder(200, `{"persistent":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
 	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
 		httpmock.NewStringResponder(200, `{}`))
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
@@ -24,9 +28,9 @@ func TestDrain(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
 		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
 
-	url, _ := url.Parse("http://elasticsearch:9200")
+	esUrl, _ := url.Parse("http://elasticsearch:9200")
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint: esUrl,
 	}
 	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
@@ -39,7 +43,67 @@ func TestDrain(t *testing.T) {
 	info := httpmock.GetCallCountInfo()
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
 	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
-	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
+}
+
+func TestDrainWithTransientSettings(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	var intermediateClusterSettings []byte
+	expectedSequenceOfExcludeIPs := []string{"", "1.2.3.4"}
+	var numCalls = 0
+
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		func(request *http.Request) (*http.Response, error) {
+			if numCalls == 0 {
+				return httpmock.NewStringResponse(200, `{"transient":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`), nil
+			}
+			return httpmock.NewStringResponse(200, string(intermediateClusterSettings)), nil
+		})
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		func(request *http.Request) (*http.Response, error) {
+			var esSettings ESSettings
+			bodyReader, _ := request.GetBody()
+			_ = json.NewDecoder(bodyReader).Decode(&esSettings)
+
+			if numCalls == 0 {
+				bodyReader, _ = request.GetBody()
+				intermediateClusterSettings, _ = ioutil.ReadAll(bodyReader)
+			}
+
+			if esSettings.GetTransientExcludeIPs().ValueOrZero() != "" || esSettings.GetTransientRebalance().ValueOrZero() != "" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			if esSettings.GetPersistentExcludeIPs().ValueOrZero() != expectedSequenceOfExcludeIPs[numCalls] || esSettings.GetPersistentRebalance().ValueOrZero() != "none" {
+				return httpmock.NewStringResponse(400, ""), nil
+			}
+
+			numCalls = numCalls + 1
+			return httpmock.NewStringResponse(200, `{}`), nil
+		})
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(200, `{"status":"green"}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
+		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
+
+	esUrl, _ := url.Parse("http://elasticsearch:9200")
+	systemUnderTest := &ESClient{
+		Endpoint: esUrl,
+	}
+	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	})
+
+	assert.NoError(t, err)
+
+	info := httpmock.GetCallCountInfo()
+	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
+	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
 }
 
@@ -258,4 +322,89 @@ func TestExcludeSystemIndices(t *testing.T) {
 	assert.Equal(t, 1, len(indices), indices)
 	assert.Equal(t, "a", indices[0].Index, indices)
 
+}
+
+func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
+	type fields struct {
+		Transient  ClusterSettings
+		Persistent ClusterSettings
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		expected ESSettings
+	}{
+		{
+			name: "null transient settings should remain as null persistent settings",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+			},
+			expected: ESSettings{
+				Transient: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+				Persistent: ClusterSettings{Cluster{Routing{
+					Rebalance:  Rebalance{Enable: null.StringFromPtr(nil)},
+					Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}},
+				}}},
+			},
+		},
+		{
+			name: "copy over non empty transient cluster rebalance settings",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFromPtr(nil)}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
+			},
+		},
+		{
+			name: "copy over non empty transient exclude ips string",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+			},
+		},
+		{
+			name: "merge existing persistent exclude ips with transient exclude ips",
+			fields: fields{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("11.21.31.41")}}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,11.21.31.41")}}}}},
+			},
+		},
+		{
+			name: "deduplicate transient exclude ips",
+			fields: fields{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,1.2.3.4")}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("11.21.31.41")}}}}},
+			},
+			expected: ESSettings{
+				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
+				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,11.21.31.41")}}}}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			esSettings := &ESSettings{
+				Transient:  tt.fields.Transient,
+				Persistent: tt.fields.Persistent,
+			}
+			esSettings.MergeNonEmptyTransientSettings()
+			assert.Equal(t, tt.expected.GetPersistentRebalance(), esSettings.GetPersistentRebalance())
+			assert.Equal(t, tt.expected.GetPersistentExcludeIPs(), esSettings.GetPersistentExcludeIPs())
+		})
+	}
 }
