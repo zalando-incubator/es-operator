@@ -359,7 +359,6 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 				Transient: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
 			},
 			expected: ESSettings{
-				Transient:  ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFromPtr(nil)}}}},
 				Persistent: ClusterSettings{Cluster{Routing{Rebalance: Rebalance{Enable: null.StringFrom("none")}}}},
 			},
 		},
@@ -369,9 +368,15 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 				Transient: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
 			},
 			expected: ESSettings{
-				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
 				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4")}}}}},
 			},
+		},
+		{
+			name: "overwrite empty transient exclude ips string to null",
+			fields: fields{
+				Transient: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("")}}}}},
+			},
+			expected: ESSettings{},
 		},
 		{
 			name: "merge existing persistent exclude ips with transient exclude ips",
@@ -380,7 +385,6 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("11.21.31.41")}}}}},
 			},
 			expected: ESSettings{
-				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
 				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,11.21.31.41")}}}}},
 			},
 		},
@@ -391,7 +395,6 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("11.21.31.41")}}}}},
 			},
 			expected: ESSettings{
-				Transient:  ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFromPtr(nil)}}}}},
 				Persistent: ClusterSettings{Cluster{Routing{Allocation: Allocation{Exclude{IP: null.StringFrom("1.2.3.4,11.21.31.41")}}}}},
 			},
 		},
@@ -404,7 +407,9 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 			}
 			esSettings.MergeNonEmptyTransientSettings()
 			assert.Equal(t, tt.expected.GetPersistentRebalance(), esSettings.GetPersistentRebalance())
+			assert.Equal(t, tt.expected.GetTransientRebalance(), esSettings.GetTransientRebalance())
 			assert.Equal(t, tt.expected.GetPersistentExcludeIPs(), esSettings.GetPersistentExcludeIPs())
+			assert.Equal(t, tt.expected.GetTransientExcludeIPs(), esSettings.GetTransientExcludeIPs())
 		})
 	}
 }
