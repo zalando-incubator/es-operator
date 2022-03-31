@@ -122,16 +122,23 @@ func (esSettings *ESSettings) MergeNonEmptyTransientSettings() {
 		esSettings.Transient.Cluster.Routing.Rebalance.Enable = null.StringFromPtr(nil)
 	}
 
-	if transientExcludeIps := esSettings.GetTransientExcludeIPs().ValueOrZero(); transientExcludeIps != "" {
-		persistentExcludeIps := esSettings.GetPersistentExcludeIPs().ValueOrZero()
-		if persistentExcludeIps == "" {
-			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&transientExcludeIps)
-		} else {
-			mergedIps := null.StringFrom(deduplicateIPs(transientExcludeIps + "," + persistentExcludeIps))
-			esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = mergedIps
-		}
-		esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
+	transientExcludeIps := esSettings.GetTransientExcludeIPs().ValueOrZero()
+	persistentExcludeIps := esSettings.GetPersistentExcludeIPs().ValueOrZero()
+	if persistentExcludeIps == "" && transientExcludeIps != "" {
+		esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(&transientExcludeIps)
+	} else if persistentExcludeIps != "" {
+		uniqueIps := deduplicateIPs(mergeExcludeIpStrings(transientExcludeIps, persistentExcludeIps))
+		mergedIps := null.StringFrom(uniqueIps)
+		esSettings.Persistent.Cluster.Routing.Allocation.Exclude.IP = mergedIps
 	}
+	esSettings.Transient.Cluster.Routing.Allocation.Exclude.IP = null.StringFromPtr(nil)
+}
+
+func mergeExcludeIpStrings(transientExcludeIps string, persistentExcludeIps string) string {
+	if transientExcludeIps == "" {
+		return persistentExcludeIps
+	}
+	return transientExcludeIps + "," + persistentExcludeIps
 }
 
 func (esSettings *ESSettings) GetTransientExcludeIPs() null.String {
