@@ -155,6 +155,9 @@ type ElasticsearchDataSetScaling struct {
 	ScaleUpCPUBoundary int32 `json:"scaleUpCPUBoundary"`
 	// +kubebuilder:validation:Minimum=0
 	// +optional
+	ScaleUpDiskUsagePercentBoundary int32 `json:"scaleUpDiskUsagePercentBoundary"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
 	ScaleUpThresholdDurationSeconds int64 `json:"scaleUpThresholdDurationSeconds"`
 	// +kubebuilder:validation:Minimum=0
 	// +optional
@@ -162,6 +165,9 @@ type ElasticsearchDataSetScaling struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	ScaleDownCPUBoundary int32 `json:"scaleDownCPUBoundary"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ScaleDownDiskUsagePercentBoundary int32 `json:"scaleDownDiskUsagePercentBoundary"`
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	ScaleDownThresholdDurationSeconds int64 `json:"scaleDownThresholdDurationSeconds"`

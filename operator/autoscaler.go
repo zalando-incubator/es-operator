@@ -126,6 +126,23 @@ func (as *AutoScaler) scalingHint() ScalingDirection {
 			as.logger.Info("Not scaling up, currently in cool-down period.")
 		}
 	}
+
+	// check if disk usage is below threshold
+	// TODO(Radu) is there a way to avoid calling _cat/nodes all the time? maybe just once per loop?
+	// or just store it somewhere with a timeout?
+	esNodes, err := as.esClient.GetNodes()
+	if err != nil {
+		as.logger.Errorf("Can't get ES Nodes: %v", err)
+	} else {
+		maxDiskUsagePercent := as.getMaxDiskUsage(esNodes)
+		scaleDownDiskUsagePercentBoundary := float64(scaling.ScaleDownDiskUsagePercentBoundary)
+		if maxDiskUsagePercent < scaleDownDiskUsagePercentBoundary {
+			as.logger.Debugf("Scaling hint DOWN because max disk usage %.2f is lower than the threshold %.2f",
+				maxDiskUsagePercent, scaleDownDiskUsagePercentBoundary)
+			return DOWN
+		}
+	}
+
 	return NONE
 }
 
@@ -265,6 +282,30 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
 			NodeReplicas:     &newDesiredNodeReplicas,
 			Description:      fmt.Sprintf("Current shard-to-node ratio (%.2f) exceeding the desired limit of (%d).", currentShardToNodeRatio, scalingSpec.MaxShardsPerNode),
+		}
+	}
+
+	// independent of scaling direction: if we run out of disk, we try to scale up
+	esNodes, err := as.esClient.GetNodes()
+	if err != nil {
+		as.logger.Errorf("Can't get ES Nodes: %v", err)
+	} else {
+		maxDiskUsagePercent := as.getMaxDiskUsage(esNodes)
+		scaleUpDiskUsagePercentBoundary := float64(scalingSpec.ScaleUpDiskUsagePercentBoundary)
+		if maxDiskUsagePercent > scaleUpDiskUsagePercentBoundary {
+			// TODO(Radu) compute how many nodes we need instead of increasing by one?
+			newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(currentDesiredNodeReplicas + 1)
+
+			scalingMessage := fmt.Sprintf("Scaling up to %d nodes because %.2f is higher than %.2f",
+				newDesiredNodeReplicas, maxDiskUsagePercent, scaleUpDiskUsagePercentBoundary)
+
+			as.logger.Debug(scalingMessage)
+
+			return &ScalingOperation{
+				ScalingDirection: UP,
+				NodeReplicas:     &newDesiredNodeReplicas,
+				Description:      scalingMessage,
+			}
 		}
 	}
 
