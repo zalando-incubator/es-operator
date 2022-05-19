@@ -545,9 +545,16 @@ func (r *EDSResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet)
 		replicas = *sts.Spec.Replicas
 	}
 
+	hpaReplicas := *r.eds.Spec.HpaReplicas
+	if r.eds.Spec.HpaReplicas == nil {
+		hpaReplicas = int32(1)
+	}
+
 	if r.eds.Generation != observedGeneration ||
 		r.eds.Status.Replicas != replicas {
 		r.eds.Status.Replicas = replicas
+		r.eds.Status.HpaReplicas = hpaReplicas
+		r.eds.Status.Selector = r.eds.ObjectMeta.Name
 		r.eds.Status.ObservedGeneration = &r.eds.Generation
 		eds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(ctx, r.eds, metav1.UpdateOptions{})
 		if err != nil {
@@ -821,6 +828,9 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 
 	currentReplicas := edsReplicas(eds)
 	eds.Spec.Replicas = &currentReplicas
+	if eds.Spec.HpaReplicas == nil {
+		eds.Spec.HpaReplicas = &currentReplicas
+	}
 	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {

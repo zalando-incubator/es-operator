@@ -1,0 +1,26 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: "es-data-simple-hpa"
+  namespace: "es-operator-demo"
+  labels:
+    application: "elasticsearch"
+spec:
+  scaleTargetRef:
+    apiVersion: zalando.org/v1
+    kind: ElasticsearchDataSet
+    name: es-data-simple
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Object
+      object:
+        describedObject:
+          apiVersion: zalando.org/v1
+          kind: ScalingSchedule
+          name: "es-data-simple-scaleup-schedule"
+        metric:
+          name: "es-data-simple-scaleup-schedule"
+        target:
+          type: AverageValue
+          averageValue: "1000"

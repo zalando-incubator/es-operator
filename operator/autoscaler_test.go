@@ -11,6 +11,8 @@ import (
 )
 
 func TestScalingHint(t *testing.T) {
+	replicas := int32(1)
+	hpaReplicas := int32(1)
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "EDS1",
@@ -25,6 +27,8 @@ func TestScalingHint(t *testing.T) {
 				ScaleDownCPUBoundary:              25,
 				ScaleDownThresholdDurationSeconds: 240,
 			},
+			Replicas:    &replicas,
+			HpaReplicas: &hpaReplicas,
 		},
 		Status: zv1.ElasticsearchDataSetStatus{},
 	}
@@ -140,7 +144,7 @@ func TestScalingHint(t *testing.T) {
 }
 
 func TestScaleUp(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale up
@@ -157,7 +161,7 @@ func TestScaleUp(t *testing.T) {
 }
 
 func TestScaleUpByAddingReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale up by adding replicas
@@ -175,7 +179,7 @@ func TestScaleUpByAddingReplicas(t *testing.T) {
 }
 
 func TestScaleUpSnappingToNonFractionedShardToNodeRatio(t *testing.T) {
-	eds := edsTestFixture(5)
+	eds := edsTestFixture(5, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale up by adding replicas
@@ -192,7 +196,7 @@ func TestScaleUpSnappingToNonFractionedShardToNodeRatio(t *testing.T) {
 }
 
 func TestScaleDownSnappingToNonFractionedShardToNodeRatio(t *testing.T) {
-	eds := edsTestFixture(14)
+	eds := edsTestFixture(14, 0)
 	esNodes := make([]ESNode, 0)
 
 	esIndices := map[string]ESIndex{
@@ -209,7 +213,7 @@ func TestScaleDownSnappingToNonFractionedShardToNodeRatio(t *testing.T) {
 }
 
 func TestScaleDown(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale down
@@ -226,7 +230,7 @@ func TestScaleDown(t *testing.T) {
 }
 
 func TestScaleDownToLowestBoundary(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	eds.Spec.Scaling.MaxShardsPerNode = 40
 
 	esNodes := make([]ESNode, 0)
@@ -249,7 +253,7 @@ func TestScaleDownToLowestBoundary(t *testing.T) {
 }
 
 func TestCannotScaleDownAnymore(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// cannot scale down anymore
@@ -267,7 +271,7 @@ func TestCannotScaleDownAnymore(t *testing.T) {
 }
 
 func TestIncreaseShardToNodeRatioMore(t *testing.T) {
-	eds := edsTestFixture(3)
+	eds := edsTestFixture(3, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale-down even if this means increasing shard-to-node ratio of more than +1
@@ -287,7 +291,7 @@ func TestIncreaseShardToNodeRatioMore(t *testing.T) {
 }
 
 func TestScaleDownByRemovingIndexReplica(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale down by removing an index replica
@@ -305,7 +309,7 @@ func TestScaleDownByRemovingIndexReplica(t *testing.T) {
 }
 
 func TestAtMaxIndexReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// cannot scale up further (already at maxIndexReplicas)
@@ -323,7 +327,7 @@ func TestAtMaxIndexReplicas(t *testing.T) {
 }
 
 func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// require to scale-up because we exceeded shard-to-node ratio limits.
@@ -343,7 +347,7 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 }
 
 func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
-	eds := edsTestFixture(11)
+	eds := edsTestFixture(11, 0)
 	esNodes := make([]ESNode, 0)
 
 	// require to scale-up index replicas because we are below one shard per node.
@@ -367,7 +371,7 @@ func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
 }
 
 func TestAtMaxShardsPerNode(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	esIndices := map[string]ESIndex{
@@ -393,7 +397,7 @@ func TestAtMaxShardsPerNode(t *testing.T) {
 }
 
 func TestScaleMinIndexReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// scale up indexReplicas to 2 despite of scalingHint == DOWN
@@ -416,7 +420,7 @@ func TestScaleMinIndexReplicas(t *testing.T) {
 }
 
 func TestAtMinIndexReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// don't scale down if that would cause to have less data nodes then min index replicas
@@ -438,7 +442,7 @@ func TestAtMinIndexReplicas(t *testing.T) {
 }
 
 func TestAtNoIndicesAllocatedYet(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esIndices := make(map[string]ESIndex)
 	esNodes := make([]ESNode, 0)
 
@@ -457,7 +461,7 @@ func TestAtNoIndicesAllocatedYet(t *testing.T) {
 }
 
 func TestAtMinReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// don't scale down if we reached MinReplicas
@@ -480,7 +484,7 @@ func TestAtMinReplicas(t *testing.T) {
 }
 
 func TestAtMaxReplicas(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := make([]ESNode, 0)
 
 	// don't scale down if we reached MinReplicas
@@ -503,7 +507,7 @@ func TestAtMaxReplicas(t *testing.T) {
 }
 
 func TestAtMaxDisk(t *testing.T) {
-	eds := edsTestFixture(4)
+	eds := edsTestFixture(4, 0)
 	esNodes := []ESNode{
 		{
 			IP:              "1.2.3.4",
@@ -544,9 +548,11 @@ func TestEDSWithoutReplicas(t *testing.T) {
 	require.Equal(t, actual.ScalingDirection, NONE, actual.Description)
 }
 
-func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
+func edsTestFixture(initialReplicas int, initialHpaReplicas int) *zv1.ElasticsearchDataSet {
 	r := int32(initialReplicas)
-	return &zv1.ElasticsearchDataSet{
+	hpaReplicas := int32(initialHpaReplicas)
+
+	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "EDS1",
 			Namespace: "default",
@@ -558,14 +564,22 @@ func edsTestFixture(initialReplicas int) *zv1.ElasticsearchDataSet {
 				MinIndexReplicas:                   1,
 				MaxIndexReplicas:                   3,
 				DiskUsagePercentScaledownWatermark: 75,
+				ScaleUpCooldownSeconds:             120,
+				ScaleUpCPUBoundary:                 50,
+				ScaleUpThresholdDurationSeconds:    240,
+				ScaleDownCooldownSeconds:           120,
+				ScaleDownCPUBoundary:               25,
+				ScaleDownThresholdDurationSeconds:  240,
 			},
-			Replicas: &r,
+			Replicas:    &r,
+			HpaReplicas: &hpaReplicas,
 		},
 	}
+	return eds
 }
 
 func TestCalculateNodeBoundaries(t *testing.T) {
-	eds := edsTestFixture(3)
+	eds := edsTestFixture(3, 0)
 	eds.Spec.Scaling.MinReplicas = 2
 	eds.Spec.Scaling.MaxReplicas = 5
 	as := systemUnderTest(eds, nil, nil)
@@ -644,7 +658,7 @@ func TestGetManagedIndices(t *testing.T) {
 		},
 	}
 
-	as := systemUnderTest(edsTestFixture(1), nil, pods)
+	as := systemUnderTest(edsTestFixture(1, 0), nil, pods)
 	actual := as.getManagedIndices(indices, shards)
 
 	require.Equal(t, 2, len(actual))
@@ -672,7 +686,7 @@ func TestGetManagedNodes(t *testing.T) {
 		},
 	}
 
-	as := systemUnderTest(edsTestFixture(1), nil, pods)
+	as := systemUnderTest(edsTestFixture(1, 0), nil, pods)
 	actual := as.getManagedNodes(pods, nodes)
 
 	require.Equal(t, 1, len(actual))
@@ -686,4 +700,204 @@ func systemUnderTest(eds *zv1.ElasticsearchDataSet, metricSet *zv1.Elasticsearch
 		Pods:                 pods,
 	}
 	return NewAutoScaler(es, time.Second*60, nil)
+}
+
+func TestHpaScaleUpWithoutIndices(t *testing.T) {
+	eds := edsTestFixture(1, 1)
+	as := systemUnderTest(eds, nil, nil)
+
+	initialOperation := as.calculateScalingOperation(map[string]ESIndex{}, make([]ESNode, 0), NONE)
+	require.Nil(t, initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, NONE, initialOperation.ScalingDirection, initialOperation.Description)
+
+	*eds.Spec.HpaReplicas = int32(3)
+
+	secondOperation := as.calculateScalingOperation(map[string]ESIndex{}, make([]ESNode, 0), UP)
+	require.Nil(t, secondOperation.NodeReplicas, secondOperation.Description)
+	require.Equal(t, NONE, secondOperation.ScalingDirection, secondOperation.Description)
+}
+
+func TestHpaScaleUpPreferMinNodeReplicasScaling(t *testing.T) {
+	eds := edsTestFixture(1, 1)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 3, Primaries: 1, Index: "ad1"},
+	}
+	as := systemUnderTest(eds, nil, nil)
+
+	// ensure min node replicas for the index
+	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
+	require.Equal(t, int32(2), *initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
+
+	*eds.Spec.HpaReplicas = int32(10)
+
+	// satisfy hpa replicas
+	secondOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
+	require.Equal(t, int32(10), *secondOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, UP, secondOperation.ScalingDirection, secondOperation.Description)
+}
+
+func TestPreferScalingIndexReplicasOverHpaScaleUp(t *testing.T) {
+	eds := edsTestFixture(1, 1)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+	}
+	as := systemUnderTest(eds, nil, nil)
+
+	// ensure min node replicas
+	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
+	require.Equal(t, int32(2), *initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
+
+	eds.Spec.Scaling.MinIndexReplicas = int32(2)
+	*eds.Spec.HpaReplicas = int32(10)
+
+	// satisfy index replicas
+	secondOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
+	require.Nil(t, secondOperation.NodeReplicas, secondOperation.Description)
+	require.Equal(t, UP, secondOperation.ScalingDirection, secondOperation.Description)
+	require.Equal(t, 1, len(secondOperation.IndexReplicas), secondOperation.Description)
+	require.Equal(t, int32(2), secondOperation.IndexReplicas[0].Replicas, secondOperation.Description)
+
+	// satisfy hpa replicas
+	scaledIndices := map[string]ESIndex{
+		"ad1": {Replicas: 2, Primaries: 1, Index: "ad1"},
+	}
+	thirdOperation := as.calculateScalingOperation(scaledIndices, make([]ESNode, 0), UP)
+	require.Equal(t, int32(10), *thirdOperation.NodeReplicas, thirdOperation.Description)
+	require.Equal(t, UP, thirdOperation.ScalingDirection, thirdOperation.Description)
+	require.Equal(t, 0, len(thirdOperation.IndexReplicas), thirdOperation.Description)
+}
+
+func buildEDSCpuMetrics(cpuUsage int32) *zv1.ElasticsearchMetricSet {
+	esMSet := &zv1.ElasticsearchMetricSet{
+		Metrics: []zv1.ElasticsearchMetric{
+			{
+				Timestamp: metav1.Now(),
+				Value:     cpuUsage,
+			},
+		},
+	}
+	esMSet.Metrics = []zv1.ElasticsearchMetric{
+		{
+			Timestamp: metav1.Now(),
+			Value:     cpuUsage,
+		},
+		{
+			Timestamp: metav1.Now(),
+			Value:     cpuUsage,
+		},
+		{
+			Timestamp: metav1.Now(),
+			Value:     cpuUsage,
+		},
+		{
+			Timestamp: metav1.Now(),
+			Value:     cpuUsage,
+		},
+	}
+	return esMSet
+}
+
+func TestHpaScaleUpSingleStep(t *testing.T) {
+	eds := edsTestFixture(3, 1)
+
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 2, Index: "ad1"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(20))
+	as := systemUnderTest(eds, esMSet, nil)
+	*eds.Spec.HpaReplicas = int32(10)
+
+	var scalingHint = as.scalingHint()
+	require.Equal(t, scalingHint, UP)
+	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, int32(10), *initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
+}
+
+func TestMaintainHpaReplicasWithLowCpu(t *testing.T) {
+	eds := edsTestFixture(10, 10)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(20))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, NONE, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, NONE, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Nil(t, scalingOperation.NodeReplicas, scalingOperation.Description)
+}
+
+func TestScaleDownOnHpaResetToOneReplicaWithLowCpu(t *testing.T) {
+	eds := edsTestFixture(10, 1)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(20))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, DOWN, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, DOWN, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Equal(t, int32(2), *scalingOperation.NodeReplicas, scalingOperation.Description)
+}
+
+func TestNoScalingOnHpaResetToOneReplicaWithModerateCpu(t *testing.T) {
+	eds := edsTestFixture(10, 1)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(35))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, NONE, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, NONE, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Nil(t, scalingOperation.NodeReplicas, scalingOperation.Description)
+}
+
+func TestScaleIndexReplicasOverNodeReplicasWithHighCpu(t *testing.T) {
+	eds := edsTestFixture(10, 10)
+	eds.Spec.Scaling.MaxReplicas = 15
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(65))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, UP, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, UP, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Equal(t, int32(10), *scalingOperation.NodeReplicas, scalingOperation.Description)
+	require.Equal(t, int32(2), scalingOperation.IndexReplicas[0].Replicas, scalingOperation.Description)
+}
+
+func TestScaleUpAfterReachingMaxIndexReplicas(t *testing.T) {
+	eds := edsTestFixture(4, 4)
+	eds.Spec.Scaling.MaxIndexReplicas = 2
+	eds.Spec.Scaling.MaxReplicas = 10
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 2, Primaries: 1, Index: "ad1"},
+		"ad2": {Replicas: 2, Primaries: 1, Index: "ad2"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(65))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, UP, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, NONE, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Nil(t, scalingOperation.NodeReplicas, scalingOperation.Description)
+	require.Nil(t, scalingOperation.IndexReplicas, scalingOperation.Description)
 }

@@ -110,6 +110,11 @@ func (in *ElasticsearchDataSetSpec) DeepCopyInto(out *ElasticsearchDataSetSpec) 
 		*out = new(int32)
 		**out = **in
 	}
+	if in.HpaReplicas != nil {
+		in, out := &in.HpaReplicas, &out.HpaReplicas
+		*out = new(int32)
+		**out = **in
+	}
 	in.Template.DeepCopyInto(&out.Template)
 	if in.Scaling != nil {
 		in, out := &in.Scaling, &out.Scaling

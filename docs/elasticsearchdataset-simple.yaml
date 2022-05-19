@@ -6,11 +6,24 @@ metadata:
     role: data
     group: simple
   name: es-data-simple
-  namespace: es-operator-demo
 spec:
   replicas: 1
+  hpa_replicas: 1
   scaling:
-    enabled: false
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    minIndexReplicas: 0
+    maxIndexReplicas: 0
+    minShardsPerNode: 1
+    maxShardsPerNode: 4
+    scaleUpCPUBoundary: 90
+    scaleUpThresholdDurationSeconds: 300
+    scaleUpCooldownSeconds: 300
+    scaleDownCPUBoundary: 80
+    scaleDownThresholdDurationSeconds: 300
+    scaleDownCooldownSeconds: 300
+    diskUsagePercentScaledownWatermark: 90
   template:
     metadata:
       labels:
@@ -21,65 +34,66 @@ spec:
       securityContext:
         fsGroup: 1000
       containers:
-      - name: elasticsearch
-        env:
-        - name: "node.name"
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: "node.attr.group"
-          value: "simple"
-        - name: "node.master"
-          value: "false"
-        - name: "node.data"
-          value: "true"
-        - name: "ES_JAVA_OPTS"
-          value: "-Xmx500m -Xms500m"
-        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
-        ports:
-        - containerPort: 9300
-          name: transport
-        readinessProbe:
-          httpGet:
-            path: /_cat/master
-            port: 9200
-          timeoutSeconds: 10
-        resources:
-          limits:
-            cpu: 100m
-            memory: 800Mi
-          requests:
-            cpu: 100m
-            memory: 800Mi
-        volumeMounts:
-        - mountPath: /usr/share/elasticsearch/data
-          name: data
-        - name: elasticsearch-config
-          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
-          subPath: elasticsearch.yml
+        - name: elasticsearch
+          env:
+            - name: "node.name"
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: "node.attr.group"
+              value: "simple"
+            - name: "node.master"
+              value: "false"
+            - name: "node.data"
+              value: "true"
+            - name: "ES_JAVA_OPTS"
+              value: "-Xmx500m -Xms500m"
+          image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.0.0"
+          ports:
+            - containerPort: 9300
+              name: transport
+          readinessProbe:
+            httpGet:
+              path: /_cat/master
+              port: 9200
+            timeoutSeconds: 10
+            initialDelaySeconds: 120
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+            requests:
+              cpu: 1000m
+              memory: 1000Mi
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: data
+            - name: elasticsearch-config
+              mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+              subPath: elasticsearch.yml
       initContainers:
-      - command:
-        - sysctl
-        - -w
-        - vm.max_map_count=262144
-        image: busybox:1.30
-        name: init-sysctl
-        resources:
-          limits:
-            cpu: 50m
-            memory: 50Mi
-          requests:
-            cpu: 50m
-            memory: 50Mi
-        securityContext:
-          runAsUser: 0
-          privileged: true
+        - command:
+            - sysctl
+            - -w
+            - vm.max_map_count=262144
+          image: busybox:1.30
+          name: init-sysctl
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50Mi
+            requests:
+              cpu: 50m
+              memory: 50Mi
+          securityContext:
+            runAsUser: 0
+            privileged: true
       volumes:
-      - name: data
-        emptyDir: {}
-      - name: elasticsearch-config
-        configMap:
-          name: es-config
-          items:
-          - key: elasticsearch.yml
-            path: elasticsearch.yml
+        - name: data
+          emptyDir: { }
+        - name: elasticsearch-config
+          configMap:
+            name: es-config
+            items:
+              - key: elasticsearch.yml
+                path: elasticsearch.yml
