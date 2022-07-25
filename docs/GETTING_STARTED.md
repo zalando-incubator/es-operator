@@ -24,7 +24,6 @@ the deployment for collecting and reporting from custom metric sources.
 kubectl apply -f manifest/kube-metrics-adapter.yaml
 ```
 
-
 ## Step 2 - Register Custom Resource Definitions
 
 The ES Operator manages two custom resources. These need to be registered in your cluster.
@@ -40,7 +39,6 @@ If the custom HPA metrics need to be tested or verified, add these additional re
 kubectl apply -f docs/zalando.org_scalingschedules.yaml
 kubectl apply -f docs/zalando.org_clusterscalingschedules.yaml
 ```
-
 
 ## Step 3 - Deploy ES Operator
 
@@ -112,6 +110,7 @@ kubectl apply -f docs/scaling_schedule.yaml
 kubectl apply -f docs/hpa.yaml
 ```
 
+Refer to the [DEBUGGING_HPA](docs/DEBUGGING_HPA) document for debugging the kube-metrics-adapter, HPA and custom metrics.
 
 ## Advanced Step: Auto-Scaling
 
