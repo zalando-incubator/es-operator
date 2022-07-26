@@ -21,7 +21,7 @@ the deployment for collecting and reporting from custom metric sources.
 
 **Note: This is required if deploying to a local kubernetes setup. Please verify first if your is cluster already running a version of [custom metrics api server](https://github.com/kubernetes-sigs/custom-metrics-apiserver).**
 ```
-kubectl apply -f manifest/kube-metrics-adapter.yaml
+kubectl apply -f manifests/kube-metrics-adapter.yaml
 ```
 
 ## Step 2 - Register Custom Resource Definitions
