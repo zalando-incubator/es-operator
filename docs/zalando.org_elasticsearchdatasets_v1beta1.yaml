@@ -120,6 +120,10 @@ spec:
                   minimum: 0
                   type: integer
               type: object
+            skipDraining:
+              description: SkipDraining determines whether pods of the EDS should
+                be drained before termination or not. Defaults to false
+              type: boolean
             template:
               description: Template describes the pods that will be created.
               properties:

@@ -38,7 +38,8 @@ type ElasticsearchDataSetSpec struct {
 	ExcludeSystemIndices bool `json:"excludeSystemIndices"`
 
 	// SkipDraining determines whether pods of the EDS should be drained
-	// before termination or not.
+	// before termination or not. Defaults to false
+	// +optional
 	SkipDraining bool `json:"skipDraining"`
 
 	// // serviceName is the name of the service that governs this StatefulSet.
