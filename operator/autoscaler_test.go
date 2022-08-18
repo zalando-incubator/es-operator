@@ -737,38 +737,6 @@ func TestHpaScaleUpPreferMinNodeReplicasScaling(t *testing.T) {
 	require.Equal(t, UP, secondOperation.ScalingDirection, secondOperation.Description)
 }
 
-func TestPreferScalingIndexReplicasOverHpaScaleUp(t *testing.T) {
-	eds := edsTestFixture(1, 1)
-	esIndices := map[string]ESIndex{
-		"ad1": {Replicas: 1, Primaries: 1, Index: "ad1"},
-	}
-	as := systemUnderTest(eds, nil, nil)
-
-	// ensure min node replicas
-	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
-	require.Equal(t, int32(2), *initialOperation.NodeReplicas, initialOperation.Description)
-	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
-
-	eds.Spec.Scaling.MinIndexReplicas = int32(2)
-	*eds.Spec.HpaReplicas = int32(10)
-
-	// satisfy index replicas
-	secondOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), UP)
-	require.Nil(t, secondOperation.NodeReplicas, secondOperation.Description)
-	require.Equal(t, UP, secondOperation.ScalingDirection, secondOperation.Description)
-	require.Equal(t, 1, len(secondOperation.IndexReplicas), secondOperation.Description)
-	require.Equal(t, int32(2), secondOperation.IndexReplicas[0].Replicas, secondOperation.Description)
-
-	// satisfy hpa replicas
-	scaledIndices := map[string]ESIndex{
-		"ad1": {Replicas: 2, Primaries: 1, Index: "ad1"},
-	}
-	thirdOperation := as.calculateScalingOperation(scaledIndices, make([]ESNode, 0), UP)
-	require.Equal(t, int32(10), *thirdOperation.NodeReplicas, thirdOperation.Description)
-	require.Equal(t, UP, thirdOperation.ScalingDirection, thirdOperation.Description)
-	require.Equal(t, 0, len(thirdOperation.IndexReplicas), thirdOperation.Description)
-}
-
 func buildEDSCpuMetrics(cpuUsage int32) *zv1.ElasticsearchMetricSet {
 	esMSet := &zv1.ElasticsearchMetricSet{
 		Metrics: []zv1.ElasticsearchMetric{
@@ -813,6 +781,29 @@ func TestHpaScaleUpSingleStep(t *testing.T) {
 	require.Equal(t, scalingHint, UP)
 	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
 	require.Equal(t, int32(10), *initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, 1, len(initialOperation.IndexReplicas), initialOperation.Description)
+	require.Equal(t, int32(3), initialOperation.IndexReplicas[0].Replicas, initialOperation.Description)
+	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
+}
+
+func TestHpaScaleUpSingleStepMultipleIndices(t *testing.T) {
+	eds := edsTestFixture(3, 1)
+
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 1, Primaries: 2, Index: "ad1"},
+		"ad2": {Replicas: 1, Primaries: 2, Index: "ad2"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(20))
+	as := systemUnderTest(eds, esMSet, nil)
+	*eds.Spec.HpaReplicas = int32(10)
+
+	var scalingHint = as.scalingHint()
+	require.Equal(t, scalingHint, UP)
+	initialOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, int32(10), *initialOperation.NodeReplicas, initialOperation.Description)
+	require.Equal(t, 2, len(initialOperation.IndexReplicas), initialOperation.Description)
+	require.Equal(t, int32(3), initialOperation.IndexReplicas[0].Replicas, initialOperation.Description)
+	require.Equal(t, int32(3), initialOperation.IndexReplicas[1].Replicas, initialOperation.Description)
 	require.Equal(t, UP, initialOperation.ScalingDirection, initialOperation.Description)
 }
 
@@ -826,6 +817,47 @@ func TestMaintainHpaReplicasWithLowCpu(t *testing.T) {
 
 	scalingHint := as.scalingHint()
 	require.Equal(t, NONE, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, NONE, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Nil(t, scalingOperation.NodeReplicas, scalingOperation.Description)
+}
+
+func TestScaleUpOverHpaReplicasWithHighCpu(t *testing.T) {
+	eds := edsTestFixture(6, 6)
+	eds.Spec.Scaling.MaxReplicas = 18
+	eds.Spec.Scaling.MaxIndexReplicas = 8
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 2, Primaries: 2, Index: "ad1"},
+		"ad2": {Replicas: 2, Primaries: 2, Index: "ad2"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(60))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, UP, scalingHint)
+
+	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
+	require.Equal(t, UP, scalingOperation.ScalingDirection, scalingOperation.Description)
+	require.Equal(t, int32(8), *scalingOperation.NodeReplicas, scalingOperation.Description)
+	require.Equal(t, 2, len(scalingOperation.IndexReplicas), scalingOperation.Description)
+	require.Equal(t, int32(3), scalingOperation.IndexReplicas[0].Replicas, scalingOperation.Description)
+	require.Equal(t, int32(3), scalingOperation.IndexReplicas[1].Replicas, scalingOperation.Description)
+}
+
+func TestNoScaleUpOverHpaReplicasWithHighCpu(t *testing.T) {
+	eds := edsTestFixture(6, 6)
+	eds.Spec.Scaling.MaxReplicas = 18
+	eds.Spec.Scaling.MaxIndexReplicas = 2
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 2, Primaries: 2, Index: "ad1"},
+		"ad2": {Replicas: 2, Primaries: 2, Index: "ad2"},
+	}
+	esMSet := buildEDSCpuMetrics(int32(60))
+	as := systemUnderTest(eds, esMSet, nil)
+
+	scalingHint := as.scalingHint()
+	require.Equal(t, UP, scalingHint)
 
 	scalingOperation := as.calculateScalingOperation(esIndices, make([]ESNode, 0), scalingHint)
 	require.Equal(t, NONE, scalingOperation.ScalingDirection, scalingOperation.Description)
