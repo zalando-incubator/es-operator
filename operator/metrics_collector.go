@@ -126,6 +126,6 @@ func (c *ElasticsearchMetricsCollector) storeMedian(ctx context.Context, i int32
 
 func calculateMedian(cpuMetrics []int32) int32 {
 	sort.Slice(cpuMetrics, func(i, j int) bool { return cpuMetrics[i] < cpuMetrics[j] })
-	// in case of odd number of samples we now get the lower one.
+	// in case of even number of samples we now get the lower one.
 	return cpuMetrics[(len(cpuMetrics)-1)/2]
 }

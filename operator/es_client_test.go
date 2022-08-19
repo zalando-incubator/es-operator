@@ -3,7 +3,7 @@ package operator
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -69,7 +69,7 @@ func TestDrainWithTransientSettings(t *testing.T) {
 
 			if numCalls == 0 {
 				bodyReader, _ = request.GetBody()
-				intermediateClusterSettings, _ = ioutil.ReadAll(bodyReader)
+				intermediateClusterSettings, _ = io.ReadAll(bodyReader)
 			}
 
 			if esSettings.GetTransientExcludeIPs().ValueOrZero() != "" || esSettings.GetTransientRebalance().ValueOrZero() != "" {
