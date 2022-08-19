@@ -371,54 +371,54 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 				NodeReplicas:     &updatedDesiredNodeReplicas,
 				Description:      fmt.Sprintf("Increasing node replicas to match hpa replicas %d.", updatedDesiredNodeReplicas),
 			}
-		} else {
-			if currentShardToNodeRatio <= float64(scalingSpec.MinShardsPerNode) {
-				newTotalShards := currentTotalShards
-				for _, index := range esIndices {
-					if index.Replicas >= scalingSpec.MaxIndexReplicas {
-						return noopScalingOperation(fmt.Sprintf("Not allowed to scale up due to maxIndexReplicas (%d) reached for index %s.",
-							scalingSpec.MaxIndexReplicas, index.Index))
-					}
-					newTotalShards += index.Primaries
-					newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
-						Index:     index.Index,
-						Primaries: index.Primaries,
-						Replicas:  index.Replicas + 1,
-					})
+		}
+
+		if currentShardToNodeRatio <= float64(scalingSpec.MinShardsPerNode) {
+			newTotalShards := currentTotalShards
+			for _, index := range esIndices {
+				if index.Replicas >= scalingSpec.MaxIndexReplicas {
+					return noopScalingOperation(fmt.Sprintf("Not allowed to scale up due to maxIndexReplicas (%d) reached for index %s.",
+						scalingSpec.MaxIndexReplicas, index.Index))
 				}
-				if newTotalShards > currentTotalShards {
-					newDesiredNodeReplicas := currentDesiredNodeReplicas
+				newTotalShards += index.Primaries
+				newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+					Index:     index.Index,
+					Primaries: index.Primaries,
+					Replicas:  index.Replicas + 1,
+				})
+			}
+			if newTotalShards > currentTotalShards {
+				newDesiredNodeReplicas := currentDesiredNodeReplicas
 
-					scalingMsg := "Increasing index replicas."
+				scalingMsg := "Increasing index replicas."
 
-					// Evaluate new number of nodes only if we above MinShardsPerNode parameter
-					if shardToNodeRatio(newTotalShards, currentDesiredNodeReplicas) >= float64(scalingSpec.MinShardsPerNode) {
-						newDesiredNodeReplicas = as.ensureBoundsNodeReplicas(
-							calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
-						if newDesiredNodeReplicas != currentDesiredNodeReplicas {
-							scalingMsg = fmt.Sprintf("Trying to keep shard-to-node ratio (%.2f), and increasing index replicas.", shardToNodeRatio(newTotalShards, newDesiredNodeReplicas))
-						}
-					}
-
-					return &ScalingOperation{
-						Description:   scalingMsg,
-						NodeReplicas:  &newDesiredNodeReplicas,
-						IndexReplicas: newDesiredIndexReplicas,
-						// we don't use "as.calculateScalingDirection" because the func "calculateNodesWithSameShardToNodeRatio" can produce the same number of nodes
-						// but we still need to scale up shards
-						ScalingDirection: UP,
+				// Evaluate new number of nodes only if we above MinShardsPerNode parameter
+				if shardToNodeRatio(newTotalShards, currentDesiredNodeReplicas) >= float64(scalingSpec.MinShardsPerNode) {
+					newDesiredNodeReplicas = as.ensureBoundsNodeReplicas(
+						calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards))
+					if newDesiredNodeReplicas != currentDesiredNodeReplicas {
+						scalingMsg = fmt.Sprintf("Trying to keep shard-to-node ratio (%.2f), and increasing index replicas.", shardToNodeRatio(newTotalShards, newDesiredNodeReplicas))
 					}
 				}
-			}
 
-			// round down to the next non-fractioned shard-to-node ratio
-			newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
-
-			return &ScalingOperation{
-				ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
-				NodeReplicas:     &newDesiredNodeReplicas,
-				Description:      fmt.Sprintf("Increasing node replicas to %d.", newDesiredNodeReplicas),
+				return &ScalingOperation{
+					Description:   scalingMsg,
+					NodeReplicas:  &newDesiredNodeReplicas,
+					IndexReplicas: newDesiredIndexReplicas,
+					// we don't use "as.calculateScalingDirection" because the func "calculateNodesWithSameShardToNodeRatio" can produce the same number of nodes
+					// but we still need to scale up shards
+					ScalingDirection: UP,
+				}
 			}
+		}
+
+		// round down to the next non-fractioned shard-to-node ratio
+		newDesiredNodeReplicas := as.ensureBoundsNodeReplicas(calculateIncreasedNodes(currentDesiredNodeReplicas, currentTotalShards))
+
+		return &ScalingOperation{
+			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, newDesiredNodeReplicas),
+			NodeReplicas:     &newDesiredNodeReplicas,
+			Description:      fmt.Sprintf("Increasing node replicas to %d.", newDesiredNodeReplicas),
 		}
 
 	case DOWN:
