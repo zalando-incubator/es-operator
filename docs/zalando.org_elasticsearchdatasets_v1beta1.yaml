@@ -32,8 +32,8 @@ spec:
   subresources:
     scale:
       labelSelectorPath: .status.selector
-      specReplicasPath: .spec.hpa_replicas
-      statusReplicasPath: .status.hpa_replicas
+      specReplicasPath: .spec.hpaReplicas
+      statusReplicasPath: .status.hpaReplicas
     status: {}
   validation:
     openAPIV3Schema:
@@ -60,7 +60,7 @@ spec:
               description: Exclude management of System Indices on this Data Set.
                 Defaults to false
               type: boolean
-            hpa_replicas:
+            hpaReplicas:
               description: Number of pods specified by the HPA.
               format: int32
               type: integer
@@ -6819,7 +6819,7 @@ spec:
           description: ElasticsearchDataSetStatus is the status section of the ElasticsearchDataSet
             resource.
           properties:
-            hpa_replicas:
+            hpaReplicas:
               description: HpaReplicas is the number of Pods determined by the HPA
                 metrics.
               format: int32
@@ -6850,7 +6850,7 @@ spec:
               description: Hpa selector
               type: string
           required:
-          - hpa_replicas
+          - hpaReplicas
           - replicas
           - selector
           type: object

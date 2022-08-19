@@ -8,7 +8,7 @@ metadata:
   name: es-data-simple
 spec:
   replicas: 1
-  hpa_replicas: 1
+  hpaReplicas: 1
   scaling:
     enabled: true
     minReplicas: 1

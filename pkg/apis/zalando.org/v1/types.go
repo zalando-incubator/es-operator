@@ -16,7 +16,7 @@ import (
 // +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.spec.replicas`,description="The desired number of replicas for the stateful set"
 // +kubebuilder:printcolumn:name="Current",type=integer,JSONPath=`.status.replicas`,description="The current number of replicas for the stateful set"
 // +kubebuilder:subresource:status
-// +kubebuilder:subresource:scale:specpath=.spec.hpa_replicas,statuspath=.status.hpa_replicas,selectorpath=.status.selector
+// +kubebuilder:subresource:scale:specpath=.spec.hpaReplicas,statuspath=.status.hpaReplicas,selectorpath=.status.selector
 type ElasticsearchDataSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -36,7 +36,7 @@ type ElasticsearchDataSetSpec struct {
 
 	// Number of pods specified by the HPA.
 	// +optional
-	HpaReplicas *int32 `json:"hpa_replicas,omitempty" protobuf:"varint,1,opt,name=hpa_replicas"`
+	HpaReplicas *int32 `json:"hpaReplicas,omitempty" protobuf:"varint,1,opt,name=hpaReplicas"`
 
 	// Exclude management of System Indices on this Data Set. Defaults to false
 	// +optional
@@ -192,7 +192,7 @@ type ElasticsearchDataSetStatus struct {
 	Replicas int32 `json:"replicas" protobuf:"varint,2,opt,name=replicas"`
 
 	// HpaReplicas is the number of Pods determined by the HPA metrics.
-	HpaReplicas int32 `json:"hpa_replicas" protobuf:"varint,2,opt,name=hpa_replicas"`
+	HpaReplicas int32 `json:"hpaReplicas" protobuf:"varint,2,opt,name=hpaReplicas"`
 
 	// Hpa selector
 	Selector string `json:"selector"`

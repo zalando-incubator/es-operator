@@ -46,7 +46,7 @@ apiVersion: zalando.org/v1
 kind: ElasticsearchDataSet
 spec:
   replicas: 2
-  hpa_replicas: 1
+  hpaReplicas: 1
   scaling:
     enabled: true
     minReplicas: 1
@@ -70,7 +70,7 @@ spec:
 | Key                                             | Description                                                                                                                                                                                                                              | Type |
 |-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
 | spec.replicas                                   | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size.                                                                                                                                         | Int |
-| spec.hpa_replicas                               | Initial number of replicas which will be modified by the HPA if provisioned. The default value is 1 to allow modification by HPA. Setting to zero will disable HPA operations.                                                           | Int |
+| spec.hpaReplicas                               | Initial number of replicas which will be modified by the HPA if provisioned. The default value is 1 to allow modification by HPA. Setting to zero will disable HPA operations.                                                           | Int |
 | spec.excludeSystemIndices                       | Enable or disable inclusion of system indices like '.kibana' when calculating shard-per-node ratio and scaling index replica counts. Those are usually managed by Elasticsearch internally. Default is false for backwards compatibility | Boolean |
 | spec.scaling.enabled                            | Enable or disable auto-scaling. May be necessary to enforce manual scaling.                                                                                                                                                              | Boolean |
 | spec.scaling.minReplicas                        | Minimum Pod replicas. Lower bound (inclusive) when scaling down.                                                                                                                                                                         | Int |
@@ -87,7 +87,7 @@ spec:
 | spec.scaling.scaleDownCooldownSeconds           | Minimum duration in seconds between two scale-down operations.                                                                                                                                                                           | Int |
 | spec.scaling.diskUsagePercentScaledownWatermark | If disk usage on one of the nodes exceeds this threshold, scaling down will be prevented.                                                                                                                                                | Float |
 | status.replicas                                 | Reports the number of pods in the underlying statefulset.                                                                                                                                                                                | Timestamp |
-| status.hpa_replicas                             | Reports the number of hpa replicas after reconciliation of the .spec.hpa_replicas. This value is used when describing the HPA.                                                                                                           | Timestamp |
+| status.hpaReplicas                             | Reports the number of hpa replicas after reconciliation of the .spec.hpaReplicas. This value is used when describing the HPA.                                                                                                           | Timestamp |
 | status.lastScaleUpStarted                       | Timestamp of start of last scale-up activity.                                                                                                                                                                                            | Timestamp |
 | status.lastScaleUpEnded                         | Timestamp of end of last scale-up activity.                                                                                                                                                                                              | Timestamp |
 | status.lastScaleDownStarted                     | Timestamp of start of last scale-down activity.                                                                                                                                                                                         | Timestamp |
@@ -114,7 +114,7 @@ replicas when scaling out, and removing them before scaling in again. All you ne
 
 In addition, a Horizontal Pod Autoscaler (HPA) targeting the EDS can be provisioned to provide an additional signal for
 scaling the EDS. The HPA replica count works within the EDS min and max replicas boundaries. The HPA modifies the 
-separate `.spec.hpa_replicas` property of the EDS to indicate the current scaling requirements. The min index replicas 
+separate `.spec.hpaReplicas` property of the EDS to indicate the current scaling requirements. The min index replicas 
 and min node replica are satisfied before satisfying the HPA replica count. The scale down after the HPA resets or scales down
 follows the same behavior as before. Firstly, index replicas are reduced by 1 if not at min index replicas. Secondly, the 
 new node replica count is calculated by increasing the shard-per-node ratio by 1.
