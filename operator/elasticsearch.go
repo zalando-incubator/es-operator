@@ -917,10 +917,10 @@ func edsScalingOperation(eds *zv1.ElasticsearchDataSet) (*ScalingOperation, erro
 
 // validateScalingSettings checks that the scaling settings are valid.
 //
-// * min values can not be > than the corresponding max values.
-// * min can not be less than 0.
-// * 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
-//   conflict.
+//   - min values can not be > than the corresponding max values.
+//   - min can not be less than 0.
+//   - 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
+//     conflict.
 func validateScalingSettings(scaling *zv1.ElasticsearchDataSetScaling) error {
 	// don't validate if scaling is not enabled
 	if scaling == nil || !scaling.Enabled {
