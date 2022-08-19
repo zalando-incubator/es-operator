@@ -114,10 +114,11 @@ replicas when scaling out, and removing them before scaling in again. All you ne
 
 In addition, a Horizontal Pod Autoscaler (HPA) targeting the EDS can be provisioned to provide an additional signal for
 scaling the EDS. The HPA replica count works within the EDS min and max replicas boundaries. The HPA modifies the 
-separate `.spec.hpaReplicas` property of the EDS to indicate the current scaling requirements. The min index replicas 
-and min node replica are satisfied before satisfying the HPA replica count. The scale down after the HPA resets or scales down
-follows the same behavior as before. Firstly, index replicas are reduced by 1 if not at min index replicas. Secondly, the 
-new node replica count is calculated by increasing the shard-per-node ratio by 1.
+separate `.spec.hpaReplicas` property of the EDS to indicate the current scaling requirements. One the first scale up, the operator 
+attempts to keep the min shards pre node requirement by increasing the index replicas bounded by the configured max index replica setting. Any further
+scale up due to cpu load will follow the default procedure by first increasing the index replicas up to the max shard per node setting and then 
+increase the node replicas. The scale down after the HPA resets or scales down follows the same behavior as before. Firstly, index replicas are reduced by 1 if not at min index replicas. Secondly, the 
+new node replica count is calculated by increasing the shard-per-node ratio by 1. The HPA scale up respects the cool down period before scaling up or down.
 
 
 ## Example 1
@@ -148,6 +149,19 @@ new node replica count is calculated by increasing the shard-per-node ratio by 1
 * Scale up by 3 nodes to satisfy the HPA requirement. The shard-per-node-ratio decreases to 2: 18 shards / 2 per-node => 9 nodes
 * Edit HPA min replicas = 1 
 * Mean cpu-utilization is below 40% for the last 20 minutes => scale down by increasing shard-per-node ratio to 3: 18 shards / 3 per-node => 6 nodes
+
+## Example 4 with HPA index replica and node replica scale up in a single step
+
+* Two indices with 3 shards, minReplicas = 6, maxReplicas=18, minShardsPerNode=2, maxShardsPerNode=6, targetCPU: 40%
+* Initial, minimal deployment: 3 copies of index x 3 shards x 2 indices = 18 shards / 6-per-node => 3 nodes
+* Deploy HPA with min replicas = 12, max replicas = 18
+* New shard to node ratio: 3 copies of index x 3 shards x 2 indices = 18 shards / 12 nodes => 1.5
+* Increase index replica by 1 to increase shard to node ratio to: 4 copies of index x 3 shards x 2 indices = 18 shards / 12 nodes => 2
+* Scale up step:
+  * Scale up by 3 nodes to satisfy the HPA requirement. The shard-per-node-ratio decreases to 2: 24 shards / 12 nodes => 2-per-node
+  * Increase index replica by 1
+* Edit HPA min replicas = 1
+* Mean cpu-utilization is below 40% for the last 20 minutes => scale down by decreasing index replicas to 3 and recalculating node replicas: 18 shards / 6 per-node => 3 nodes
 
 
 ## Scale-up operation
