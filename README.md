@@ -47,6 +47,7 @@ kind: ElasticsearchDataSet
 spec:
   replicas: 2
   hpaReplicas: 1
+  skipDraining: false
   scaling:
     enabled: true
     minReplicas: 1
@@ -72,6 +73,7 @@ spec:
 | spec.replicas                                   | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size.                                                                                                                                         | Int |
 | spec.hpaReplicas                               | Initial number of replicas which will be modified by the HPA if provisioned. The default value is 1 to allow modification by HPA. Setting to zero will disable HPA operations.                                                           | Int |
 | spec.excludeSystemIndices                       | Enable or disable inclusion of system indices like '.kibana' when calculating shard-per-node ratio and scaling index replica counts. Those are usually managed by Elasticsearch internally. Default is false for backwards compatibility | Boolean |
+| spec.skipDraining | Allows the ES Operator to terminate an Elasticsearch node without re-allocating its data. This is useful for persistent disk setups, like EBS volumes. Beware that the ES Operator does not verify that you have more than one copy of your indices and therefore wouldn't protect you from potential data loss. (default=false) | Boolean |
 | spec.scaling.enabled                            | Enable or disable auto-scaling. May be necessary to enforce manual scaling.                                                                                                                                                              | Boolean |
 | spec.scaling.minReplicas                        | Minimum Pod replicas. Lower bound (inclusive) when scaling down.                                                                                                                                                                         | Int |
 | spec.scaling.maxReplicas                        | Maximum Pod replicas. Upper bound (inclusive) when scaling up.                                                                                                                                                                           | Int |

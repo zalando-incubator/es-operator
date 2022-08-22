@@ -510,6 +510,9 @@ func (r *EDSResource) ensureService(ctx context.Context) error {
 
 // Drain drains a pod for Elasticsearch data.
 func (r *EDSResource) Drain(ctx context.Context, pod *v1.Pod) error {
+	if r.eds.Spec.SkipDraining {
+		return nil
+	}
 	return r.esClient.Drain(ctx, pod)
 }
 
