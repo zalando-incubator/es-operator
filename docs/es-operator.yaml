@@ -33,11 +33,7 @@ spec:
       serviceAccountName: es-operator
       containers:
       - name: es-operator
-        image: es-operator-local:v0.1.3-21-g4ad2302-dirty
-        args:
-          - --interval=30s
-          - --namespace=es-operator-demo
-          - --debug
+        image: registry.opensource.zalan.do/poirot/es-operator:latest
         resources:
           limits:
             cpu: 20m
