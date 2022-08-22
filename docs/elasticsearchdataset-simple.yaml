@@ -12,18 +12,18 @@ spec:
   hpaReplicas: 1
   scaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 5
-    minIndexReplicas: 1
+    minIndexReplicas: 0
     maxIndexReplicas: 3
     minShardsPerNode: 1
     maxShardsPerNode: 4
     scaleUpCPUBoundary: 90
-    scaleUpThresholdDurationSeconds: 300
-    scaleUpCooldownSeconds: 300
+    scaleUpThresholdDurationSeconds: 120
+    scaleUpCooldownSeconds: 120
     scaleDownCPUBoundary: 80
-    scaleDownThresholdDurationSeconds: 300
-    scaleDownCooldownSeconds: 300
+    scaleDownThresholdDurationSeconds: 120
+    scaleDownCooldownSeconds: 120
     diskUsagePercentScaledownWatermark: 90
   template:
     metadata:
@@ -61,10 +61,10 @@ spec:
             initialDelaySeconds: 120
           resources:
             limits:
-              cpu: 1000m
+              cpu: 100m
               memory: 1000Mi
             requests:
-              cpu: 1000m
+              cpu: 100m
               memory: 1000Mi
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
