@@ -11,10 +11,10 @@ spec:
   hpaReplicas: 1
   scaling:
     enabled: true
-    minReplicas: 1
-    maxReplicas: 3
-    minIndexReplicas: 0
-    maxIndexReplicas: 0
+    minReplicas: 2
+    maxReplicas: 5
+    minIndexReplicas: 1
+    maxIndexReplicas: 3
     minShardsPerNode: 1
     maxShardsPerNode: 4
     scaleUpCPUBoundary: 90

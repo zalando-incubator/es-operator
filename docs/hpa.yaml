@@ -11,7 +11,7 @@ spec:
     kind: ElasticsearchDataSet
     name: es-data-simple
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 5
   metrics:
     - type: Object
       object:
