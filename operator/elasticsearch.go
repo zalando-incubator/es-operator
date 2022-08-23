@@ -548,9 +548,9 @@ func (r *EDSResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet)
 		replicas = *sts.Spec.Replicas
 	}
 
-	hpaReplicas := *r.eds.Spec.HpaReplicas
-	if r.eds.Spec.HpaReplicas == nil {
-		hpaReplicas = int32(1)
+	hpaReplicas := int32(1)
+	if r.eds.Spec.HpaReplicas != nil {
+		hpaReplicas = *r.eds.Spec.HpaReplicas
 	}
 
 	if r.eds.Generation != observedGeneration ||
