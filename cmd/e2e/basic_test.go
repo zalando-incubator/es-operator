@@ -11,24 +11,31 @@ import (
 )
 
 type TestEDSSpecFactory struct {
-	edsName   string
-	replicas  int32
-	scaling   *zv1.ElasticsearchDataSetScaling
-	version   string
-	configMap string
+	edsName     string
+	replicas    int32
+	hpaReplicas int32
+	scaling     *zv1.ElasticsearchDataSetScaling
+	version     string
+	configMap   string
 }
 
 func NewTestEDSSpecFactory(edsName, version, configMap string) *TestEDSSpecFactory {
 	return &TestEDSSpecFactory{
-		edsName:   edsName,
-		version:   version,
-		configMap: configMap,
-		replicas:  1,
+		edsName:     edsName,
+		version:     version,
+		configMap:   configMap,
+		replicas:    1,
+		hpaReplicas: 1,
 	}
 }
 
 func (f *TestEDSSpecFactory) Replicas(replicas int32) *TestEDSSpecFactory {
 	f.replicas = replicas
+	return f
+}
+
+func (f *TestEDSSpecFactory) HpaReplicas(hpaReplicas int32) *TestEDSSpecFactory {
+	f.hpaReplicas = hpaReplicas
 	return f
 }
 
@@ -39,8 +46,9 @@ func (f *TestEDSSpecFactory) Scaling(scaling *zv1.ElasticsearchDataSetScaling) *
 
 func (f *TestEDSSpecFactory) Create() zv1.ElasticsearchDataSetSpec {
 	var result = zv1.ElasticsearchDataSetSpec{
-		Replicas: &f.replicas,
-		Scaling:  f.scaling,
+		Replicas:    &f.replicas,
+		HpaReplicas: &f.hpaReplicas,
+		Scaling:     f.scaling,
 		Template: zv1.PodTemplateSpec{
 			EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
 				Labels: map[string]string{
@@ -64,7 +72,7 @@ func testEDSCreate(t *testing.T, edsName, version, configMap string) zv1.Elastic
 	return edsSpec
 }
 
-func verifyEDS(t *testing.T, edsName string, edsSpec zv1.ElasticsearchDataSetSpec, replicas *int32) *zv1.ElasticsearchDataSet {
+func verifyEDS(t *testing.T, edsName string, edsSpec zv1.ElasticsearchDataSetSpec, replicas *int32, hpaReplicas *int32) *zv1.ElasticsearchDataSet {
 	// Verify eds
 	eds, err := waitForEDS(t, edsName)
 	require.NoError(t, err)
@@ -99,6 +107,7 @@ func verifyEDS(t *testing.T, edsName string, edsSpec zv1.ElasticsearchDataSetSpe
 	},
 		expectedStsStatus{
 			replicas:        replicas,
+			hpaReplicas:     hpaReplicas,
 			updatedReplicas: replicas,
 			readyReplicas:   replicas,
 		}.matches)
@@ -120,7 +129,7 @@ func TestEDSCreateBasic6(t *testing.T) {
 	t.Parallel()
 	edsName := "basic6"
 	edsSpec := testEDSCreate(t, edsName, "6.8.14", "es6-config")
-	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
+	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas, edsSpec.HpaReplicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
 }
@@ -129,7 +138,7 @@ func TestEDSCreateBasic7(t *testing.T) {
 	t.Parallel()
 	edsName := "basic7"
 	edsSpec := testEDSCreate(t, edsName, "7.10.2", "es7-config")
-	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
+	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas, edsSpec.HpaReplicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
 }

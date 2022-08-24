@@ -15,10 +15,13 @@ proxy_pid="$!"
 kubectl create ns "$namespace"
 # deploy CRDs
 kubectl apply -f docs/zalando.org_elasticsearchdatasets.yaml -f docs/zalando.org_elasticsearchmetricsets.yaml
+kubectl apply -f docs/zalando.org_clusterscalingschedules.yaml -f docs/zalando.org_scalingschedules.yaml
 # deploy sysctl ds
 kubectl apply -f manifests/sysctl.yaml
 # deploy metrics-server
 kubectl apply -f manifests/metrics-server.yaml
+# deploy kube-metrics-adapter
+kubectl apply -f manifests/kube-metrics-adapter.yaml
 # deploy manifests
 for f in deploy/e2e/apply/*; do
   sed "s#{{{IMAGE}}}#${ES_OPERATOR_IMAGE}#" "$f" \
