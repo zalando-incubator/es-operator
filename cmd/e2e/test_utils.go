@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	defaultWaitTimeout = 15 * time.Minute
+	defaultWaitTimeout = 45 * time.Minute
 )
 
 var (

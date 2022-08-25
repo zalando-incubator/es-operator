@@ -61,10 +61,10 @@ spec:
             initialDelaySeconds: 120
           resources:
             limits:
-              cpu: 100m
+              cpu: 500m
               memory: 1000Mi
             requests:
-              cpu: 100m
+              cpu: 500m
               memory: 1000Mi
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
