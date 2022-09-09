@@ -15,16 +15,16 @@ type ZInterface = clientset.Interface
 
 type Clientset struct {
 	kubernetes.Interface
-	zInterface clientset.Interface
-	mInterface metrics.Interface
+	ZInterface clientset.Interface
+	MInterface metrics.Interface
 }
 
 func (c *Clientset) ZalandoV1() zalandov1.ZalandoV1Interface {
-	return c.zInterface.ZalandoV1()
+	return c.ZInterface.ZalandoV1()
 }
 
 func (c *Clientset) MetricsV1Beta1() v1beta1.MetricsV1beta1Interface {
-	return c.mInterface.MetricsV1beta1()
+	return c.MInterface.MetricsV1beta1()
 }
 
 func NewClientset(kubeConfig *rest.Config) (*Clientset, error) {
@@ -45,7 +45,7 @@ func NewClientset(kubeConfig *rest.Config) (*Clientset, error) {
 
 	return &Clientset{
 		Interface:  client,
-		zInterface: zClient,
-		mInterface: mClient,
+		ZInterface: zClient,
+		MInterface: mClient,
 	}, nil
 }
