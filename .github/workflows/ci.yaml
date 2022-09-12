@@ -37,4 +37,4 @@ jobs:
     - name: documentation tests
       run: |
         grep '^kubectl apply' docs/GETTING_STARTED.md | sh
-        for i in {1..10}; do kubectl -n es-operator-demo get all ; echo '========='; if kubectl -n es-operator-demo get sts es-data-simple | grep '1/1'; then echo 'SUCCESS' ; exit 0 ; fi ; sleep 120 ; done; exit 1
+        for i in {1..15}; do kubectl -n es-operator-demo get all ; echo '========='; if kubectl -n es-operator-demo get sts es-data-simple | grep '1/1'; then echo 'SUCCESS' ; exit 0 ; fi ; sleep 120 ; done; exit 1
