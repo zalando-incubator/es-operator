@@ -16,6 +16,14 @@ Therefore as the first step we deploy a serviceAccount `operator` with the neces
 kubectl apply -f docs/cluster-roles.yaml
 ```
 
+If custom HPA metrics are needed, the kube-metrics-adapter must be deployed. The customer metrics server manifest contains the necessary roles and
+the deployment for collecting and reporting from custom metric sources.
+
+**Note: This is required if deploying to a local kubernetes setup. Please verify first if your is cluster already running a version of [custom metrics api server](https://github.com/kubernetes-sigs/custom-metrics-apiserver).**
+```
+kubectl apply -f manifests/kube-metrics-adapter.yaml
+```
+
 ## Step 2 - Register Custom Resource Definitions
 
 The ES Operator manages two custom resources. These need to be registered in your cluster.
@@ -25,6 +33,12 @@ kubectl apply -f docs/zalando.org_elasticsearchdatasets.yaml
 kubectl apply -f docs/zalando.org_elasticsearchmetricsets.yaml
 ```
 
+If the custom HPA metrics need to be tested or verified, add these additional resources to the cluster.
+
+``` 
+kubectl apply -f docs/zalando.org_scalingschedules.yaml
+kubectl apply -f docs/zalando.org_clusterscalingschedules.yaml
+```
 
 ## Step 3 - Deploy ES Operator
 
@@ -84,6 +98,19 @@ We differentiated the stacks using an Elasticsearch node tag called `group`. It 
 curl -XPUT localhost:9200/demo-index -HContent-type:application/json \
  -d '{"settings": {"index": { "number_of_shards":5, "number_of_replicas":2, "routing.allocation.include.group": "group2"}}}'
  ```
+
+
+## Step 7: Create HPA and ScalingSchedule manifests
+
+The scaling schedule [manifest](docs/scaling_schedule.yaml) or other custom metric resources needs to be modified to fit the requirements. The customer metric must be added to the hpa [manifest](docs/hpa.yaml).
+Deploy the scaling schedule and hpa manifest to start autoscaling on custom metrics.
+
+```
+kubectl apply -f docs/scaling_schedule.yaml
+kubectl apply -f docs/hpa.yaml
+```
+
+Refer to the [DEBUGGING_HPA](docs/DEBUGGING_HPA) document for debugging the kube-metrics-adapter, HPA and custom metrics.
 
 ## Advanced Step: Auto-Scaling
 

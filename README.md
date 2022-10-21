@@ -31,6 +31,7 @@ are basically a thin wrapper around StatefulSets. One EDS represents a common gr
 * It works within scaling dimensions known to and long-term tested by teams in Zalando.
 * Target CPU ratio is a safe and well-known metric to scale on in order to avoid latency spikes caused by Garbage Collection.
 * In case of emergency, manual scaling is possible by disabling the auto-scaling feature.
+* Supports scaling via an HPA and custom metric resources. Currently, tested with ScalingScheduled and ClusterScalingSchedule custom resources.
 
 ## Getting Started
 
@@ -45,6 +46,7 @@ apiVersion: zalando.org/v1
 kind: ElasticsearchDataSet
 spec:
   replicas: 2
+  hpaReplicas: 1
   skipDraining: false
   scaling:
     enabled: true
@@ -66,29 +68,32 @@ spec:
 ### Custom resource properties
 
 
-| Key      | Description   | Type |
-|----------|---------------|---------|
-| spec.replicas | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size. | Int |
-| spec.excludeSystemIndices | Enable or disable inclusion of system indices like '.kibana' when calculating shard-per-node ratio and scaling index replica counts. Those are usually managed by Elasticsearch internally. Default is false for backwards compatibility | Boolean |
+| Key                                             | Description                                                                                                                                                                                                                              | Type |
+|-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| spec.replicas                                   | Initial size of the StatefulSet. If auto-scaling is disabled, this is your desired cluster size.                                                                                                                                         | Int |
+| spec.hpaReplicas                               | Initial number of replicas which will be modified by the HPA if provisioned. The default value is 1 to allow modification by HPA. Setting to zero will disable HPA operations.                                                           | Int |
+| spec.excludeSystemIndices                       | Enable or disable inclusion of system indices like '.kibana' when calculating shard-per-node ratio and scaling index replica counts. Those are usually managed by Elasticsearch internally. Default is false for backwards compatibility | Boolean |
 | spec.skipDraining | Allows the ES Operator to terminate an Elasticsearch node without re-allocating its data. This is useful for persistent disk setups, like EBS volumes. Beware that the ES Operator does not verify that you have more than one copy of your indices and therefore wouldn't protect you from potential data loss. (default=false) | Boolean |
-| spec.scaling.enabled | Enable or disable auto-scaling. May be necessary to enforce manual scaling. | Boolean |
-| spec.scaling.minReplicas | Minimum Pod replicas. Lower bound (inclusive) when scaling down.  | Int |
-| spec.scaling.maxReplicas | Maximum Pod replicas. Upper bound (inclusive) when scaling up.  | Int |
-| spec.scaling.minIndexReplicas | Minimum index replicas. Lower bound (inclusive) when reducing index copies. (reminder: total copies is replicas+1 in Elasticsearch) | Int |
-| spec.scaling.maxIndexReplicas | Maximum index replicas. Upper bound (inclusive) when increasing index copies.  | Int |
-| spec.scaling.minShardsPerNode | Minimum shard per node ratio. When reached, scaling up also requires adding more index replicas.  | Int |
-| spec.scaling.maxShardsPerNode | Maximum shard per node ratio. Boundary for scaling down. | Int |
-| spec.scaling.scaleUpCPUBoundary | (Median) CPU consumption/request ratio to consistently exceed in order to trigger scale up. | Int |
-| spec.scaling.scaleUpThresholdDurationSeconds | Duration in seconds required to meet the scale-up criteria before scaling. | Int |
-| spec.scaling.scaleUpCooldownSeconds | Minimum duration in seconds between two scale up operations. | Int |
-| spec.scaling.scaleDownCPUBoundary | (Median) CPU consumption/request ratio to consistently fall below in order to trigger scale down. | Int |
-| spec.scaling.scaleDownThresholdDurationSeconds | Duration in seconds required to meet the scale-down criteria before scaling. | Int |
-| spec.scaling.scaleDownCooldownSeconds | Minimum duration in seconds between two scale-down operations. | Int |
-| spec.scaling.diskUsagePercentScaledownWatermark | If disk usage on one of the nodes exceeds this threshold, scaling down will be prevented. | Float |
-| status.lastScaleUpStarted | Timestamp of start of last scale-up activity | Timestamp |
-| status.lastScaleUpEnded | Timestamp of end of last scale-up activity | Timestamp |
-| status.lastScaleDownStarted | Timestamp of start of last scale-down activity | Timestamp |
-| status.lastScaleDownEnded | Timestamp of end of last scale-down activity | Timestamp |
+| spec.scaling.enabled                            | Enable or disable auto-scaling. May be necessary to enforce manual scaling.                                                                                                                                                              | Boolean |
+| spec.scaling.minReplicas                        | Minimum Pod replicas. Lower bound (inclusive) when scaling down.                                                                                                                                                                         | Int |
+| spec.scaling.maxReplicas                        | Maximum Pod replicas. Upper bound (inclusive) when scaling up.                                                                                                                                                                           | Int |
+| spec.scaling.minIndexReplicas                   | Minimum index replicas. Lower bound (inclusive) when reducing index copies. (reminder: total copies is replicas+1 in Elasticsearch)                                                                                                      | Int |
+| spec.scaling.maxIndexReplicas                   | Maximum index replicas. Upper bound (inclusive) when increasing index copies.                                                                                                                                                            | Int |
+| spec.scaling.minShardsPerNode                   | Minimum shard per node ratio. When reached, scaling up also requires adding more index replicas.                                                                                                                                         | Int |
+| spec.scaling.maxShardsPerNode                   | Maximum shard per node ratio. Boundary for scaling down.                                                                                                                                                                                 | Int |
+| spec.scaling.scaleUpCPUBoundary                 | (Median) CPU consumption/request ratio to consistently exceed in order to trigger scale up.                                                                                                                                              | Int |
+| spec.scaling.scaleUpThresholdDurationSeconds    | Duration in seconds required to meet the scale-up criteria before scaling.                                                                                                                                                               | Int |
+| spec.scaling.scaleUpCooldownSeconds             | Minimum duration in seconds between two scale up operations.                                                                                                                                                                             | Int |
+| spec.scaling.scaleDownCPUBoundary               | (Median) CPU consumption/request ratio to consistently fall below in order to trigger scale down.                                                                                                                                        | Int |
+| spec.scaling.scaleDownThresholdDurationSeconds  | Duration in seconds required to meet the scale-down criteria before scaling.                                                                                                                                                             | Int |
+| spec.scaling.scaleDownCooldownSeconds           | Minimum duration in seconds between two scale-down operations.                                                                                                                                                                           | Int |
+| spec.scaling.diskUsagePercentScaledownWatermark | If disk usage on one of the nodes exceeds this threshold, scaling down will be prevented.                                                                                                                                                | Float |
+| status.replicas                                 | Reports the number of pods in the underlying statefulset.                                                                                                                                                                                | Timestamp |
+| status.hpaReplicas                             | Reports the number of hpa replicas after reconciliation of the .spec.hpaReplicas. This value is used when describing the HPA.                                                                                                           | Timestamp |
+| status.lastScaleUpStarted                       | Timestamp of start of last scale-up activity.                                                                                                                                                                                            | Timestamp |
+| status.lastScaleUpEnded                         | Timestamp of end of last scale-up activity.                                                                                                                                                                                              | Timestamp |
+| status.lastScaleDownStarted                     | Timestamp of start of last scale-down activity.                                                                                                                                                                                         | Timestamp |
+| status.lastScaleDownEnded                       | Timestamp of end of last scale-down activity.                                                                                                                                                                                           | Timestamp |
 
 
 ## How it scales
@@ -109,10 +114,19 @@ you already reached the lower bound of one shard per node. In other cases you ma
 increase concurrent capacity for an index. Consequently the operator is able to add index
 replicas when scaling out, and removing them before scaling in again. All you need to do is define the upper and lower bound of shards per node.
 
+In addition, a Horizontal Pod Autoscaler (HPA) targeting the EDS can be provisioned to provide an additional signal for
+scaling the EDS. The HPA replica count works within the EDS min and max replicas boundaries. The HPA modifies the 
+separate `.spec.hpaReplicas` property of the EDS to indicate the current scaling requirements. One the first scale up, the operator 
+attempts to keep the min shards pre node requirement by increasing the index replicas bounded by the configured max index replica setting. Any further
+scale up due to cpu load will follow the default procedure by first increasing the index replicas up to the max shard per node setting and then 
+increase the node replicas. The scale down after the HPA resets or scales down follows the same behavior as before. Firstly, index replicas are reduced by 1 if not at min index replicas. Secondly, the 
+new node replica count is calculated by increasing the shard-per-node ratio by 1. The HPA scale up respects the cool down period before scaling up or down.
+
+
 ## Example 1
 
-* One index with 6 shards. minReplicas = 2, maxReplicas=4, minShardsPerNode=1, maxShardsPerNode=3, targetCPU: 40%
-* initial, minimal deployment: 3 copies of index x 6 shards = 18 shards / 3-per-node => 6 nodes
+* One index with 6 shards, minReplicas = 2, maxReplicas=4, minShardsPerNode=1, maxShardsPerNode=3, targetCPU: 40%
+* Initial, minimal deployment: 3 copies of index x 6 shards = 18 shards / 3-per-node => 6 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up. First by decreasing the shards-per-node ratio to 2: 18 shards / 2 per-node => 9 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by decreasing shard-per-node ratio to 1: 18 shards / 1 per node => 18 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by increasing replica count to 3: 24 shards / 1 per node => 24 nodes
@@ -123,11 +137,34 @@ replicas when scaling out, and removing them before scaling in again. All you ne
 
 ## Example 2
 
-* Four indices with 6 shards. minReplicas = 2, maxReplicas=3, minShardsPerNode=2, maxShardsPerNode=4, targetCPU: 40%
+* Four indices with 6 shards, minReplicas = 2, maxReplicas=3, minShardsPerNode=2, maxShardsPerNode=4, targetCPU: 40%
 * Initial, minimal deployment: 3 copies x 4 indices x 6 shards = 72 shards / 4-per-node => 18 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up. First by decreasing the shards-per-node ratio to 3: 72 shards / 3 per-node => 24 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by decreasing the shards-per-node ratio to 2: 72 shards / 2 per-node => 36 nodes
 * Mean cpu-utilization exceeds 40% for more than 20 minutes => scale-up by increasing replicas. 4 copies x 4 indices x 6 shards = 96 shards / 2  per node => 48 nodes
+
+## Example 3 with HPA
+
+* Two indices with 3 shards, minReplicas = 6, maxReplicas=18, minShardsPerNode=1, maxShardsPerNode=3, targetCPU: 40%
+* Initial, minimal deployment: 3 copies of index x 3 shards x 2 indices = 18 shards / 3-per-node => 6 nodes
+* Deploy HPA with min replicas = 9, max replicas = 18
+* Scale up by 3 nodes to satisfy the HPA requirement. The shard-per-node-ratio decreases to 2: 18 shards / 2 per-node => 9 nodes
+* Edit HPA min replicas = 1 
+* Mean cpu-utilization is below 40% for the last 20 minutes => scale down by increasing shard-per-node ratio to 3: 18 shards / 3 per-node => 6 nodes
+
+## Example 4 with HPA index replica and node replica scale up in a single step
+
+* Two indices with 3 shards, minReplicas = 6, maxReplicas=18, minShardsPerNode=2, maxShardsPerNode=6, targetCPU: 40%
+* Initial, minimal deployment: 3 copies of index x 3 shards x 2 indices = 18 shards / 6-per-node => 3 nodes
+* Deploy HPA with min replicas = 12, max replicas = 18
+* New shard to node ratio: 3 copies of index x 3 shards x 2 indices = 18 shards / 12 nodes => 1.5
+* Increase index replica by 1 to increase shard to node ratio to: 4 copies of index x 3 shards x 2 indices = 18 shards / 12 nodes => 2
+* Scale up step:
+  * Scale up by 3 nodes to satisfy the HPA requirement. The shard-per-node-ratio decreases to 2: 24 shards / 12 nodes => 2-per-node
+  * Increase index replica by 1
+* Edit HPA min replicas = 1
+* Mean cpu-utilization is below 40% for the last 20 minutes => scale down by decreasing index replicas to 3 and recalculating node replicas: 18 shards / 6 per-node => 3 nodes
+
 
 ## Scale-up operation
 

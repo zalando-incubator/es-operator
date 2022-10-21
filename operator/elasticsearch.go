@@ -548,9 +548,16 @@ func (r *EDSResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet)
 		replicas = *sts.Spec.Replicas
 	}
 
+	hpaReplicas := int32(1)
+	if r.eds.Spec.HpaReplicas != nil {
+		hpaReplicas = *r.eds.Spec.HpaReplicas
+	}
+
 	if r.eds.Generation != observedGeneration ||
 		r.eds.Status.Replicas != replicas {
 		r.eds.Status.Replicas = replicas
+		r.eds.Status.HpaReplicas = hpaReplicas
+		r.eds.Status.Selector = r.eds.ObjectMeta.Name
 		r.eds.Status.ObservedGeneration = &r.eds.Generation
 		eds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).UpdateStatus(ctx, r.eds, metav1.UpdateOptions{})
 		if err != nil {
@@ -824,6 +831,9 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 
 	currentReplicas := edsReplicas(eds)
 	eds.Spec.Replicas = &currentReplicas
+	if eds.Spec.HpaReplicas == nil {
+		eds.Spec.HpaReplicas = &currentReplicas
+	}
 	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {
@@ -910,10 +920,10 @@ func edsScalingOperation(eds *zv1.ElasticsearchDataSet) (*ScalingOperation, erro
 
 // validateScalingSettings checks that the scaling settings are valid.
 //
-// * min values can not be > than the corresponding max values.
-// * min can not be less than 0.
-// * 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
-//   conflict.
+//   - min values can not be > than the corresponding max values.
+//   - min can not be less than 0.
+//   - 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
+//     conflict.
 func validateScalingSettings(scaling *zv1.ElasticsearchDataSetScaling) error {
 	// don't validate if scaling is not enabled
 	if scaling == nil || !scaling.Enabled {

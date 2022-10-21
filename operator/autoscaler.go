@@ -2,7 +2,6 @@ package operator
 
 import (
 	"fmt"
-
 	"math"
 
 	"time"
@@ -101,8 +100,19 @@ func (as *AutoScaler) scalingHint() ScalingDirection {
 		}
 		if scaleDownRequired {
 			if status.LastScaleDownStarted == nil || status.LastScaleDownStarted.Time.Before(time.Now().Add(-time.Duration(scaling.ScaleDownCooldownSeconds)*time.Second)) {
-				as.logger.Infof("Scaling hint: %s", DOWN)
-				return DOWN
+				isHpaScaleUp := as.isHpaScaleUp(status, scaling)
+				if isHpaScaleUp {
+					as.logger.Debug("Scaling up due to increase in Hpa Replicas.")
+					as.logger.Infof("Scaling hint: %s", UP)
+					return UP
+				} else if *as.eds.Spec.HpaReplicas != int32(1) && *as.eds.Spec.Replicas >= *as.eds.Spec.HpaReplicas {
+					as.logger.Debug("No scaling required since current replicas is equal or greater than hpa replicas.")
+					as.logger.Infof("Scaling hint: %s", NONE)
+					return NONE
+				} else {
+					as.logger.Infof("Scaling hint: %s", DOWN)
+					return DOWN
+				}
 			}
 			as.logger.Info("Not scaling down, currently in cool-down period.")
 		}
@@ -126,13 +136,33 @@ func (as *AutoScaler) scalingHint() ScalingDirection {
 			as.logger.Info("Not scaling up, currently in cool-down period.")
 		}
 	}
+
+	// check if hpa can trigger a scaling operation
+	isHpaScaleUp := as.isHpaScaleUp(status, scaling)
+	if isHpaScaleUp {
+		as.logger.Debug("Scaling up due to increase in Hpa Replicas.")
+		return UP
+	}
+
 	return NONE
+}
+
+func (as *AutoScaler) isHpaScaleUp(status zv1.ElasticsearchDataSetStatus, scaling *zv1.ElasticsearchDataSetScaling) bool {
+	if *as.eds.Spec.Replicas < *as.eds.Spec.HpaReplicas {
+		if status.LastScaleUpStarted == nil || status.LastScaleUpStarted.Time.Before(time.Now().Add(-time.Duration(scaling.ScaleUpCooldownSeconds)*time.Second)) {
+			as.logger.Infof("Scaling hint: %s", UP)
+			return true
+		}
+		as.logger.Info("Not scaling up, currently in cool-down period.")
+	}
+	return false
 }
 
 // TODO: check alternative approach by configuring the tags used for `index.routing.allocation`
 // and deriving the indices from there.
 func (as *AutoScaler) GetScalingOperation() (*ScalingOperation, error) {
 	direction := as.scalingHint()
+
 	esIndices, err := as.esClient.GetIndices()
 	if err != nil {
 		return nil, err
@@ -236,6 +266,47 @@ func (as *AutoScaler) ensureBoundsNodeReplicas(newDesiredNodeReplicas int32) int
 	}
 	return newDesiredNodeReplicas
 }
+func (as *AutoScaler) calculateIncreasedIndexReplicasForMinShardsPerNode(currentTotalShards int32, updatedDesiredNodeReplicas int32, esIndices map[string]ESIndex) []ESIndex {
+	scalingSpec := as.eds.Spec.Scaling
+	numIndices := len(esIndices)
+	newTotalShards := currentTotalShards
+
+	updatedDesiredIndexReplicas := make(map[string]*ESIndex, numIndices)
+	for _, index := range esIndices {
+		updatedDesiredIndexReplicas[index.Index] = &ESIndex{
+			Index:     index.Index,
+			Primaries: index.Primaries,
+			Replicas:  index.Replicas,
+		}
+	}
+
+	for true {
+		indicesAtMaxIndexReplicas := 0
+		for _, index := range updatedDesiredIndexReplicas {
+			if index.Replicas < scalingSpec.MaxIndexReplicas {
+				newTotalShards += index.Primaries
+				index.Replicas += 1
+			} else {
+				indicesAtMaxIndexReplicas += 1
+			}
+		}
+
+		newShardToNodeRatio := shardToNodeRatio(newTotalShards, updatedDesiredNodeReplicas)
+		if newShardToNodeRatio >= float64(scalingSpec.MinShardsPerNode) || indicesAtMaxIndexReplicas == numIndices {
+			break
+		}
+	}
+
+	newDesiredIndexReplicas := make([]ESIndex, 0, numIndices)
+	for _, index := range updatedDesiredIndexReplicas {
+		newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+			Index:     index.Index,
+			Primaries: index.Primaries,
+			Replicas:  index.Replicas,
+		})
+	}
+	return newDesiredIndexReplicas
+}
 
 func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint ScalingDirection, currentDesiredNodeReplicas int32) *ScalingOperation {
 	scalingSpec := as.eds.Spec.Scaling
@@ -279,6 +350,29 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 
 	switch scalingHint {
 	case UP:
+		// satisfy hpa replicas
+		if currentDesiredNodeReplicas < *as.eds.Spec.HpaReplicas {
+			updatedDesiredNodeReplicas := as.ensureBoundsNodeReplicas(*as.eds.Spec.HpaReplicas)
+			newShardToNodeRatio := shardToNodeRatio(currentTotalShards, updatedDesiredNodeReplicas)
+
+			// increase index replicas to ensure shard to node ratio is still close to MinShardsPerNode
+			if newShardToNodeRatio <= float64(scalingSpec.MinShardsPerNode) {
+				newDesiredIndexReplicas := as.calculateIncreasedIndexReplicasForMinShardsPerNode(currentTotalShards, updatedDesiredNodeReplicas, esIndices)
+				return &ScalingOperation{
+					ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, updatedDesiredNodeReplicas),
+					NodeReplicas:     &updatedDesiredNodeReplicas,
+					IndexReplicas:    newDesiredIndexReplicas,
+					Description:      fmt.Sprintf("Increasing node replicas to match hpa replicas %d.", updatedDesiredNodeReplicas),
+				}
+			}
+
+			return &ScalingOperation{
+				ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, updatedDesiredNodeReplicas),
+				NodeReplicas:     &updatedDesiredNodeReplicas,
+				Description:      fmt.Sprintf("Increasing node replicas to match hpa replicas %d.", updatedDesiredNodeReplicas),
+			}
+		}
+
 		if currentShardToNodeRatio <= float64(scalingSpec.MinShardsPerNode) {
 			newTotalShards := currentTotalShards
 			for _, index := range esIndices {
@@ -326,6 +420,7 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			NodeReplicas:     &newDesiredNodeReplicas,
 			Description:      fmt.Sprintf("Increasing node replicas to %d.", newDesiredNodeReplicas),
 		}
+
 	case DOWN:
 		newTotalShards := currentTotalShards
 		for _, index := range esIndices {

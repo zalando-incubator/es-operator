@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/es-operator/operator"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -20,7 +23,7 @@ import (
 )
 
 const (
-	defaultWaitTimeout = 15 * time.Minute
+	defaultWaitTimeout = 45 * time.Minute
 )
 
 var (
@@ -216,6 +219,7 @@ func waitForService(t *testing.T, name string) (*v1.Service, error) {
 
 type expectedStsStatus struct {
 	replicas        *int32
+	hpaReplicas     *int32
 	readyReplicas   *int32
 	updatedReplicas *int32
 }
@@ -309,4 +313,101 @@ func pint64(i int64) *int64 {
 
 func pint32(i int32) *int32 {
 	return &i
+}
+
+func createHPA(edsName string, minReplicas, maxReplicas int32) (*autoscaling.HorizontalPodAutoscaler, error) {
+	name := edsName + "-hpa"
+	hpaSpec := &autoscaling.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "HorizontalPodAutoscaler",
+			APIVersion: "autoscaling/v2beta2",
+		},
+		Spec: autoscaling.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscaling.CrossVersionObjectReference{
+				APIVersion: "zalando.org/v1",
+				Kind:       "ElasticsearchDataSet",
+				Name:       edsName,
+			},
+			MinReplicas: &minReplicas,
+			MaxReplicas: maxReplicas,
+			Metrics:     nil,
+			Behavior:    nil,
+		},
+	}
+
+	result, err := kubernetesClient.AutoscalingV2beta2().
+		HorizontalPodAutoscalers(namespace).
+		Create(context.Background(), hpaSpec, metav1.CreateOptions{})
+
+	if err != nil {
+		log.Error(err)
+	}
+
+	return result, err
+}
+
+func resetHpaAndEDSMinReplicas(hpa *autoscaling.HorizontalPodAutoscaler, edsName string) error {
+	updatedHpa, err := kubernetesClient.AutoscalingV2beta2().
+		HorizontalPodAutoscalers(namespace).
+		Get(context.Background(), hpa.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	minReplicas := int32(1)
+	updatedHpa.Spec.MinReplicas = &minReplicas
+	updatedHpa.Status.DesiredReplicas = minReplicas
+	_, err = kubernetesClient.AutoscalingV2beta2().
+		HorizontalPodAutoscalers(namespace).
+		Update(context.Background(), updatedHpa, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	eds, err := edsInterface().Get(context.Background(), edsName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	updatedEDS := eds.DeepCopy()
+	updatedEDS.Spec.HpaReplicas = &minReplicas
+	_, err = edsInterface().Update(context.Background(), updatedEDS, metav1.UpdateOptions{})
+
+	return err
+}
+
+func deleteHPA(hpa *autoscaling.HorizontalPodAutoscaler) error {
+	err := kubernetesClient.AutoscalingV2beta2().
+		HorizontalPodAutoscalers(namespace).
+		Delete(context.Background(), hpa.Name, metav1.DeleteOptions{})
+	return err
+}
+
+func extractIndex(indices []operator.ESIndex, indexName string) *operator.ESIndex {
+	for arrayPtr, index := range indices {
+		if index.Index == indexName {
+			return &indices[arrayPtr]
+		}
+	}
+	return nil
+}
+
+func waitForIndexReplicas(t *testing.T, indexName string, esClient *operator.ESClient, desiredIndexReplicas int32) error {
+	return newAwaiter(t, fmt.Sprintf("index %s to reach desired number of replicas", indexName)).withPoll(func() (retry bool, err error) {
+		indices, err := esClient.GetIndices()
+		if err != nil {
+			return false, err
+		}
+		index := extractIndex(indices, indexName)
+		if index == nil {
+			return false, fmt.Errorf(fmt.Sprintf("Index %s doesn't exist", indexName))
+		}
+		if index.Replicas != desiredIndexReplicas {
+			return true, nil
+		}
+		return true, nil
+	}).await()
 }

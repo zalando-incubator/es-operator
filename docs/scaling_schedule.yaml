@@ -1,0 +1,10 @@
+apiVersion: zalando.org/v1
+kind: ScalingSchedule
+metadata:
+  name: "es-data-simple-scaleup-schedule"
+spec:
+  schedules:
+    - type: OneTime
+      date: "2022-08-22T11:57:00+02:00"
+      durationMinutes: 1
+      value: 4000

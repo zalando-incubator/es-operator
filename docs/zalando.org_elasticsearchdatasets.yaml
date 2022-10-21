@@ -55,6 +55,10 @@ spec:
                 description: Exclude management of System Indices on this Data Set.
                   Defaults to false
                 type: boolean
+              hpaReplicas:
+                description: Number of pods specified by the HPA.
+                format: int32
+                type: integer
               replicas:
                 description: Number of desired pods. This is a pointer to distinguish
                   between explicit zero and not specified. Defaults to 1.
@@ -6967,6 +6971,11 @@ spec:
             description: ElasticsearchDataSetStatus is the status section of the ElasticsearchDataSet
               resource.
             properties:
+              hpaReplicas:
+                description: HpaReplicas is the number of Pods determined by the HPA
+                  metrics.
+                format: int32
+                type: integer
               lastScaleDownEnded:
                 format: date-time
                 type: string
@@ -6989,8 +6998,13 @@ spec:
                 description: Replicas is the number of Pods by the underlying StatefulSet.
                 format: int32
                 type: integer
+              selector:
+                description: Hpa selector
+                type: string
             required:
+            - hpaReplicas
             - replicas
+            - selector
             type: object
         required:
         - spec
@@ -6998,6 +7012,10 @@ spec:
     served: true
     storage: true
     subresources:
+      scale:
+        labelSelectorPath: .status.selector
+        specReplicasPath: .spec.hpaReplicas
+        statusReplicasPath: .status.hpaReplicas
       status: {}
 status:
   acceptedNames:
