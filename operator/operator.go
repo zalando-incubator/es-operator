@@ -485,7 +485,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 				return fmt.Errorf("failed to refresh EDS: %v", err)
 			}
 			newDesiredReplicas := int(newSR.Replicas())
-			if newDesiredReplicas != desiredReplicas {
+			if newDesiredReplicas > desiredReplicas {
 				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", sr.Namespace(), sr.Name(), desiredReplicas, newDesiredReplicas)
 				return nil
 			}
