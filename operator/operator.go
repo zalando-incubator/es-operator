@@ -459,6 +459,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	}
 
 	if len(pods.Items) > replicas {
+		log.Infof("Starting pod draining from %d to %d pods", len(pods.Items), replicas)
 		for _, pod := range pods.Items[replicas:] {
 			// if pod is Pending we don't need to safely drain it.
 			if pod.Status.Phase == v1.PodPending {
