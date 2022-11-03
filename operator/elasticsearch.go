@@ -602,6 +602,23 @@ func (r *EDSResource) removeScalingOperationAnnotation(ctx context.Context) erro
 	return nil
 }
 
+// calls kubernetes APIs to refresh itself
+func (r *EDSResource) Get(ctx context.Context) (StatefulResource, error) {
+	newEds, err := r.kube.ZalandoV1().ElasticsearchDataSets(r.eds.Namespace).Get(ctx, r.eds.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	sr := &EDSResource{
+		eds:      newEds,
+		kube:     r.kube,
+		esClient: r.esClient, // TODO: think about not setting this twice
+		recorder: r.recorder,
+	}
+
+	return sr, nil
+}
+
 func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, deleted bool) error {
 	// set TypeMeta manually because of this bug:
 	// https://github.com/kubernetes/client-go/issues/308
@@ -910,10 +927,10 @@ func edsScalingOperation(eds *zv1.ElasticsearchDataSet) (*ScalingOperation, erro
 
 // validateScalingSettings checks that the scaling settings are valid.
 //
-// * min values can not be > than the corresponding max values.
-// * min can not be less than 0.
-// * 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
-//   conflict.
+//   - min values can not be > than the corresponding max values.
+//   - min can not be less than 0.
+//   - 'replicas', 'indexReplicas' and 'shardsPerNode' settings should not
+//     conflict.
 func validateScalingSettings(scaling *zv1.ElasticsearchDataSetScaling) error {
 	// don't validate if scaling is not enabled
 	if scaling == nil || !scaling.Enabled {

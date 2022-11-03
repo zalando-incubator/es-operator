@@ -49,6 +49,7 @@ func (r *mockResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet
 func (r *mockResource) PreScaleDownHook(ctx context.Context) error                      { return nil }
 func (r *mockResource) OnStableReplicasHook(ctx context.Context) error                  { return nil }
 func (r *mockResource) Drain(ctx context.Context, pod *v1.Pod) error                    { return nil }
+func (r *mockResource) Get(ctx context.Context) (StatefulResource, error)               { return r, nil }
 
 func TestPrioritizePodsForUpdate(t *testing.T) {
 	updatingPod := v1.Pod{
