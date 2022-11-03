@@ -461,6 +461,17 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	if len(pods.Items) > replicas {
 		log.Infof("Starting pod draining from %d to %d pods", len(pods.Items), replicas)
 		for _, pod := range pods.Items[replicas:] {
+			// first, check if we need to opt-out of the loop because the EDS changed.
+			newSR, err := srg.Get(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to refresh EDS: %v", err)
+			}
+			newDesiredReplicas := int(newSR.Replicas())
+			if newDesiredReplicas > desiredReplicas {
+				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", sr.Namespace(), sr.Name(), desiredReplicas, newDesiredReplicas)
+				return nil
+			}
+
 			// if pod is Pending we don't need to safely drain it.
 			if pod.Status.Phase == v1.PodPending {
 				continue
@@ -474,22 +485,11 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 
 			log.Infof("Draining Pod %s/%s for scaledown", pod.Namespace, pod.Name)
-			err := sr.Drain(ctx, &pod)
+			err = sr.Drain(ctx, &pod)
 			if err != nil {
 				return fmt.Errorf("failed to drain pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			}
 			log.Infof("Pod %s/%s drained", pod.Namespace, pod.Name)
-			// check if we need to opt-out of the loop.
-			newSR, err := srg.Get(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to refresh EDS: %v", err)
-			}
-			newDesiredReplicas := int(newSR.Replicas())
-			if newDesiredReplicas > desiredReplicas {
-				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", sr.Namespace(), sr.Name(), desiredReplicas, newDesiredReplicas)
-				return nil
-			}
-
 		}
 	}
 
