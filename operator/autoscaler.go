@@ -241,17 +241,30 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 	scalingSpec := as.eds.Spec.Scaling
 
 	newDesiredIndexReplicas := make([]ESIndex, 0, len(esIndices))
+	indexScalingDirection := NONE
 
 	currentTotalShards := int32(0)
 	for _, index := range esIndices {
 		as.logger.Debugf("Index: %s, primaries: %d, replicas: %d", index.Index, index.Primaries, index.Replicas)
 		currentTotalShards += index.Primaries * (index.Replicas + 1)
 
+		// ensure to meet min index replicas requirements
 		if index.Replicas < scalingSpec.MinIndexReplicas {
+			indexScalingDirection = UP
 			newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
 				Index:     index.Index,
 				Primaries: index.Primaries,
 				Replicas:  scalingSpec.MinIndexReplicas,
+			})
+		}
+
+		// ensure to meet max index replicas requirements
+		if index.Replicas > scalingSpec.MaxIndexReplicas {
+			indexScalingDirection = DOWN
+			newDesiredIndexReplicas = append(newDesiredIndexReplicas, ESIndex{
+				Index:     index.Index,
+				Primaries: index.Primaries,
+				Replicas:  scalingSpec.MaxIndexReplicas,
 			})
 		}
 	}
@@ -268,12 +281,13 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 		}
 	}
 
-	// independent of the scaling direction: in case there are indices with < MinIndexReplicas, we try to scale these indices.
+	// independent of the scaling direction: in case there are indices with < MinIndexReplicas or > MaxIndexReplicas,
+	// we try to scale these indices.
 	if len(newDesiredIndexReplicas) > 0 {
 		return &ScalingOperation{
-			ScalingDirection: UP,
+			ScalingDirection: indexScalingDirection,
 			IndexReplicas:    newDesiredIndexReplicas,
-			Description:      "Scale indices replicas to fit MinIndexReplicas requirement",
+			Description:      "Scaling indices replicas to fit MinIndexReplicas/MaxIndexReplicas requirement",
 		}
 	}
 
