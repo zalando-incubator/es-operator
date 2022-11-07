@@ -609,6 +609,10 @@ func (r *EDSResource) Get(ctx context.Context) (StatefulResource, error) {
 		return nil, err
 	}
 
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	newEds.Kind = r.Kind()
+	newEds.APIVersion = r.APIVersion()
 	sr := &EDSResource{
 		eds:      newEds,
 		kube:     r.kube,
