@@ -3,7 +3,7 @@ module github.com/zalando-incubator/es-operator
 require (
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/jarcoal/httpmock v1.2.0
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.13.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.8.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
