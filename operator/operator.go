@@ -468,7 +468,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 			newDesiredReplicas := int(newSR.Replicas())
 			if newDesiredReplicas > desiredReplicas {
-				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", sr.Namespace(), sr.Name(), desiredReplicas, newDesiredReplicas)
+				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", newSR.Namespace(), newSR.Name(), desiredReplicas, newDesiredReplicas)
 				return nil
 			}
 
@@ -485,7 +485,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 
 			log.Infof("Draining Pod %s/%s for scaledown", pod.Namespace, pod.Name)
-			err = sr.Drain(ctx, &pod)
+			err = newSR.Drain(ctx, &pod)
 			if err != nil {
 				return fmt.Errorf("failed to drain pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			}
