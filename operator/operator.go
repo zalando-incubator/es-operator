@@ -37,6 +37,10 @@ const (
 	stabilizationTimeout = 10 * time.Minute
 )
 
+type StatefulResourceGetter interface {
+	Get(ctx context.Context) (StatefulResource, error)
+}
+
 type StatefulResource interface {
 	// Name returns the name of the resource.
 	Name() string
@@ -98,7 +102,7 @@ type Operator struct {
 	recorder              kube_record.EventRecorder
 }
 
-func (o *Operator) Run(ctx context.Context, done chan<- struct{}, sr StatefulResource) {
+func (o *Operator) Run(ctx context.Context, done chan<- struct{}, srg StatefulResourceGetter) {
 	nextCheck := time.Now().Add(-o.interval)
 
 	for {
@@ -107,7 +111,7 @@ func (o *Operator) Run(ctx context.Context, done chan<- struct{}, sr StatefulRes
 		case <-time.After(time.Until(nextCheck)):
 			nextCheck = time.Now().Add(o.interval)
 
-			err := o.operate(ctx, sr)
+			err := o.operate(ctx, srg)
 			if err != nil {
 				log.Errorf("Failed to operate resource: %v", err)
 				continue
@@ -120,14 +124,18 @@ func (o *Operator) Run(ctx context.Context, done chan<- struct{}, sr StatefulRes
 	}
 }
 
-func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
-	err := sr.EnsureResources(ctx)
+func (o *Operator) operate(ctx context.Context, srg StatefulResourceGetter) error {
+	sr, err := srg.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to refresh EDS resource: %v", err)
+	}
+	err = sr.EnsureResources(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ensure resources: %v", err)
 	}
 
 	// ensure sts
-	sts, err := o.reconcileStatefulset(ctx, sr)
+	sts, err := o.reconcileStatefulset(ctx, srg)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile StatefulSet: %v", err)
 	}
@@ -137,13 +145,18 @@ func (o *Operator) operate(ctx context.Context, sr StatefulResource) error {
 		return fmt.Errorf("failed to update status: %v", err)
 	}
 
-	err = o.operatePods(ctx, sts, sr)
+	err = o.operatePods(ctx, sts, srg)
 	return err
 }
 
-func (o *Operator) reconcileStatefulset(ctx context.Context, sr StatefulResource) (*appsv1.StatefulSet, error) {
+func (o *Operator) reconcileStatefulset(ctx context.Context, srg StatefulResourceGetter) (*appsv1.StatefulSet, error) {
 	var sts *appsv1.StatefulSet
 	var err error
+
+	sr, err := srg.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	sts, err = o.kube.AppsV1().StatefulSets(sr.Namespace()).Get(ctx, sr.Name(), metav1.GetOptions{})
 	if err != nil {
@@ -272,7 +285,11 @@ func getSTSParentGeneration(sts *appsv1.StatefulSet) int64 {
 // 2. mark Pod draining.
 // 3. drain Pod.
 // 4. delete Pod.
-func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr StatefulResource) error {
+func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg StatefulResourceGetter) error {
+	sr, err := srg.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to refresh EDS: %v", err)
+	}
 	desiredReplicas := sr.Replicas()
 
 	replicas := int32(0)
@@ -282,7 +299,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 
 	// prefer scale up over draining nodes.
 	if replicas < desiredReplicas {
-		err := o.rescaleStatefulSet(ctx, sts, sr)
+		err := o.rescaleStatefulSet(ctx, sts, srg)
 		if err != nil {
 			return fmt.Errorf("failed to rescale StatefulSet: %v", err)
 		}
@@ -308,7 +325,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 
 	// return if there are no Pods to be updated.
 	if pod == nil {
-		err := o.rescaleStatefulSet(ctx, sts, sr)
+		err := o.rescaleStatefulSet(ctx, sts, srg)
 		if err != nil {
 			return fmt.Errorf("failed to rescale StatefulSet: %v", err)
 		}
@@ -386,13 +403,17 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, sr 
 }
 
 // rescaleStatefulSet rescales the StatefulSet
-func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulSet, sr StatefulResource) error {
+func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulSet, srg StatefulResourceGetter) error {
 	replicaDiff := 0
 	currentReplicas := 0
 	if sts.Spec.Replicas != nil {
 		currentReplicas = int(*sts.Spec.Replicas)
 	}
 
+	sr, err := srg.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to refresh EDS: %v", err)
+	}
 	desiredReplicas := int(sr.Replicas())
 
 	replicaDiff = desiredReplicas - currentReplicas
@@ -438,7 +459,19 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	}
 
 	if len(pods.Items) > replicas {
+		log.Infof("Starting pod draining from %d to %d pods", len(pods.Items), replicas)
 		for _, pod := range pods.Items[replicas:] {
+			// first, check if we need to opt-out of the loop because the EDS changed.
+			newSR, err := srg.Get(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to refresh EDS: %v", err)
+			}
+			newDesiredReplicas := int(newSR.Replicas())
+			if newDesiredReplicas > desiredReplicas {
+				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", newSR.Namespace(), newSR.Name(), desiredReplicas, newDesiredReplicas)
+				return nil
+			}
+
 			// if pod is Pending we don't need to safely drain it.
 			if pod.Status.Phase == v1.PodPending {
 				continue
@@ -452,7 +485,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 
 			log.Infof("Draining Pod %s/%s for scaledown", pod.Namespace, pod.Name)
-			err := sr.Drain(ctx, &pod)
+			err = newSR.Drain(ctx, &pod)
 			if err != nil {
 				return fmt.Errorf("failed to drain pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			}
