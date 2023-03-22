@@ -26,11 +26,16 @@ const (
 var (
 	edsPodSpec = func(nodeGroup, version, configMap string) v1.PodSpec {
 		return v1.PodSpec{
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsUser:  pint64(1000),
+				RunAsGroup: pint64(0),
+				FSGroup:    pint64(0),
+			},
 			Containers: []v1.Container{
 				{
 					Name: "elasticsearch",
 					// gets replaced with desired version
-					Image: fmt.Sprintf("docker.elastic.co/elasticsearch/elasticsearch-oss:%s", version),
+					Image: fmt.Sprintf("docker.elastic.co/elasticsearch/elasticsearch:%s", version),
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: 9200,
@@ -40,19 +45,17 @@ var (
 						},
 					},
 					Env: []v1.EnvVar{
-						{Name: "ES_JAVA_OPTS", Value: "-Xms256m -Xmx256m"},
-						{Name: "node.master", Value: "false"},
-						{Name: "node.data", Value: "true"},
-						{Name: "node.ingest", Value: "true"},
+						{Name: "ES_JAVA_OPTS", Value: "-Xms356m -Xmx356m"},
+						{Name: "node.roles", Value: "data"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("512Mi"),
+							v1.ResourceMemory: resource.MustParse("720Mi"),
 							v1.ResourceCPU:    resource.MustParse("100m"),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("512Mi"),
+							v1.ResourceMemory: resource.MustParse("720Mi"),
 							v1.ResourceCPU:    resource.MustParse("100m"),
 						},
 					},
