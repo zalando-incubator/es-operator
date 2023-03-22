@@ -9,10 +9,9 @@ import (
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 )
 
-// we can  can be tested on ES6 only.
-func TestEDSCPUAutoscaleUP6(t *testing.T) {
+func TestEDSCPUAutoscaleUP8(t *testing.T) {
 	t.Parallel()
-	runTestEDSCPUAutoScaleUP(t, "6.8.14", "es6-config")
+	runTestEDSCPUAutoScaleUP(t, "8.6.2", "es8-config")
 }
 
 func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
@@ -57,12 +56,12 @@ func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 
 func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "6.8.14", "es6-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "8.6.2", "es8-config")
 }
 
 func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "7.10.2", "es7-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "7.17.2", "es7-config")
 }
 
 func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {

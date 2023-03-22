@@ -17,29 +17,28 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+        runAsUser: 1000
       containers:
       - name: elasticsearch
         resources:
           requests:
-            memory: 600Mi
+            memory: 720Mi
             cpu: 100m
           limits:
-            memory: 600Mi
+            memory: 720Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:7.17.2"
         env:
         - name: "node.name"
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xmx400m -Xms400m"
-        - name: node.master
-          value: "true"
-        - name: node.data
-          value: "false"
+          value: "-Xmx360m -Xms360m"
+        - name: node.roles
+          value: "master,data"
         readinessProbe:
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           httpGet:
             scheme: HTTP
             path: /_cluster/health?local=true

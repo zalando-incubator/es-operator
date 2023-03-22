@@ -1,45 +1,46 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: es6-master
+  name: es8-master
 spec:
   replicas: 1
-  serviceName: es6-master
+  serviceName: es8-master
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
-      application: es6
+      application: es8
       role: master
   template:
     metadata:
       labels:
-        application: es6
+        application: es8
         role: master
     spec:
       securityContext:
-        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 0
+        fsGroup: 0
       containers:
       - name: elasticsearch
         resources:
           requests:
-            memory: 512Mi
+            memory: 720Mi
             cpu: 100m
           limits:
-            memory: 512Mi
+            memory: 720Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.14"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:8.6.2"
         env:
         - name: "node.name"
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xms256m -Xmx256m"
-        - name: node.master
-          value: "true"
-        - name: node.data
-          value: "false"
+          value: "-Xms360m -Xmx360m"
+        - name: node.roles
+          value: "master,data"
         readinessProbe:
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           httpGet:
             scheme: HTTP
             path: /_cluster/health?local=true
@@ -60,7 +61,7 @@ spec:
         emptyDir: {}
       - name: config
         configMap:
-          name: es6-config
+          name: es8-config
           items:
           - key: elasticsearch.yml
             path: elasticsearch.yml
