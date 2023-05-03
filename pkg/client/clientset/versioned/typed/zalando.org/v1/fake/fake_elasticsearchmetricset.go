@@ -105,7 +105,7 @@ func (c *FakeElasticsearchMetricSets) Update(ctx context.Context, elasticsearchM
 // Delete takes name of the elasticsearchMetricSet and deletes it. Returns an error if one occurs.
 func (c *FakeElasticsearchMetricSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(elasticsearchmetricsetsResource, c.ns, name), &zalandoorgv1.ElasticsearchMetricSet{})
+		Invokes(testing.NewDeleteActionWithOptions(elasticsearchmetricsetsResource, c.ns, name, opts), &zalandoorgv1.ElasticsearchMetricSet{})
 
 	return err
 }
