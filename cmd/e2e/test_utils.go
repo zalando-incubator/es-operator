@@ -61,7 +61,7 @@ var (
 					},
 					ReadinessProbe: &v1.Probe{
 						InitialDelaySeconds: 15,
-						Handler: v1.Handler{
+						ProbeHandler: v1.ProbeHandler{
 							HTTPGet: &v1.HTTPGetAction{
 								Path:   "/_cluster/health?local=true",
 								Port:   intstr.FromInt(9200),

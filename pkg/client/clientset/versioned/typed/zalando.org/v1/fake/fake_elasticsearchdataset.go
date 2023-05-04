@@ -117,7 +117,7 @@ func (c *FakeElasticsearchDataSets) UpdateStatus(ctx context.Context, elasticsea
 // Delete takes name of the elasticsearchDataSet and deletes it. Returns an error if one occurs.
 func (c *FakeElasticsearchDataSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(elasticsearchdatasetsResource, c.ns, name), &zalandoorgv1.ElasticsearchDataSet{})
+		Invokes(testing.NewDeleteActionWithOptions(elasticsearchdatasetsResource, c.ns, name, opts), &zalandoorgv1.ElasticsearchDataSet{})
 
 	return err
 }
