@@ -6,7 +6,7 @@ require (
 	github.com/jarcoal/httpmock v1.3.0
 	github.com/prometheus/client_golang v1.15.0
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	gopkg.in/resty.v1 v1.12.0
 	k8s.io/api v0.23.17
 	k8s.io/apimachinery v0.23.17
