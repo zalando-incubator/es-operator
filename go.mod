@@ -4,7 +4,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/jarcoal/httpmock v1.3.0
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/sirupsen/logrus v1.9.2
 	github.com/stretchr/testify v1.8.4
 	gopkg.in/resty.v1 v1.12.0
