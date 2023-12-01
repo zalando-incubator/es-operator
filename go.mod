@@ -1,7 +1,7 @@
 module github.com/zalando-incubator/es-operator
 
 require (
-	github.com/alecthomas/kingpin/v2 v2.3.2
+	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/prometheus/client_golang v1.17.0
