@@ -88,19 +88,23 @@ func NewElasticsearchOperator(
 }
 
 // Run runs the main loop of the operator.
-func (o *ElasticsearchOperator) Run(ctx context.Context) {
+func (o *ElasticsearchOperator) Run(ctx context.Context) error {
 	go o.collectMetrics(ctx)
 	go o.runAutoscaler(ctx)
 
 	// run EDS watcher
-	o.runWatch(ctx)
+	err := o.runWatch(ctx)
+	if err != nil {
+		return err
+	}
 	<-ctx.Done()
 	o.logger.Info("Terminating main operator loop.")
+	return nil
 }
 
 // Run setups up a shared informer for listing and watching changes to pods and
 // starts listening for events.
-func (o *ElasticsearchOperator) runWatch(ctx context.Context) {
+func (o *ElasticsearchOperator) runWatch(ctx context.Context) error {
 	informer := cache.NewSharedIndexInformer(
 		cache.NewListWatchFromClient(
 			o.kube.ZalandoV1().RESTClient(),
@@ -112,20 +116,24 @@ func (o *ElasticsearchOperator) runWatch(ctx context.Context) {
 		cache.Indexers{},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    o.add,
 		UpdateFunc: o.update,
 		DeleteFunc: o.del,
 	})
 
+	if err != nil {
+		return fmt.Errorf("Failed to add event handler: %w", err)
+	}
+
 	go informer.Run(ctx.Done())
 
 	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		log.Errorf("Timed out waiting for caches to sync")
-		return
+		return fmt.Errorf("Timed out waiting for caches to sync")
 	}
 
 	log.Info("Synced ElasticsearchDataSet watcher")
+	return nil
 }
 
 // add is the handler for an EDS getting added.
