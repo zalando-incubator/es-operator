@@ -51,11 +51,11 @@ var (
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("720Mi"),
+							v1.ResourceMemory: resource.MustParse("1Gi"),
 							v1.ResourceCPU:    resource.MustParse("100m"),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("720Mi"),
+							v1.ResourceMemory: resource.MustParse("1Gi"),
 							v1.ResourceCPU:    resource.MustParse("100m"),
 						},
 					},
