@@ -102,7 +102,11 @@ func main() {
 
 	go handleSigterm(cancel)
 	go serveMetrics(config.MetricsAddress)
-	operator.Run(ctx)
+	err = operator.Run(ctx)
+	if err != nil {
+		cancel()
+		log.Fatalf("Failed to run operator: %v", err)
+	}
 }
 
 // handleSigterm handles SIGTERM signal sent to the process.
