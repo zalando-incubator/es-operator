@@ -14,6 +14,7 @@ require (
 	k8s.io/code-generator v0.28.8
 	k8s.io/metrics v0.28.8
 	sigs.k8s.io/controller-tools v0.13.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -74,7 +75,6 @@ require (
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace k8s.io/klog => github.com/mikkeloscar/knolog v0.0.0-20190326191552-80742771eb6b

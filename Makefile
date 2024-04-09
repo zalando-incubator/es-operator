@@ -31,7 +31,11 @@ $(GENERATED): go.mod $(CRD_TYPE_SOURCE)
 	./hack/update-codegen.sh
 
 $(GENERATED_CRDS): $(GENERATED) $(CRD_SOURCES)
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1 paths=./pkg/apis/... output:crd:dir=docs || /bin/true || true
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1 paths=./pkg/apis/... output:crd:dir=docs
+	go run hack/crd/trim.go < docs/zalando.org_elasticsearchdatasets.yaml > docs/zalando.org_elasticsearchdatasets_trimmed.yaml
+	go run hack/crd/trim.go < docs/zalando.org_elasticsearchmetricsets.yaml > docs/zalando.org_elasticsearchmetricsets_trimmed.yaml
+	mv docs/zalando.org_elasticsearchdatasets_trimmed.yaml docs/zalando.org_elasticsearchdatasets.yaml
+	mv docs/zalando.org_elasticsearchmetricsets_trimmed.yaml docs/zalando.org_elasticsearchmetricsets.yaml
 
 build.local: build/$(BINARY) $(GENERATED_CRDS)
 build.linux: build/linux/$(BINARY)
