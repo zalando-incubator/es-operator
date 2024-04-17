@@ -356,7 +356,6 @@ func (esSettings *ESSettings) updateRebalance(value string) {
 
 // repeatedly query shard allocations to ensure success of drain operation.
 func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
-	// TODO: implement context handling
 	podIP := pod.Status.PodIP
 	_, err := resty.New().
 		SetRetryCount(defaultRetryCount).
@@ -366,28 +365,35 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 			// It is expected to return (bool, error) pair. Resty will retry
 			// in case condition returns true or non nil error.
 			func(r *resty.Response) (bool, error) {
-				var shards []ESShard
-				err := json.Unmarshal(r.Body(), &shards)
-				if err != nil {
-					return true, err
-				}
-				// shardIP := make(map[string]bool)
-				remainingShards := 0
-				for _, shard := range shards {
-					if shard.IP == podIP {
-						remainingShards++
-					}
-				}
-				c.logger().Infof("Found %d remaining shards on %s/%s (%s)", remainingShards, pod.Namespace, pod.Name, podIP)
-
-				// make sure the IP is still excluded, this could have been updated in the meantime.
-				if remainingShards > 0 {
-					err = c.excludePodIP(pod)
+				select {
+				case <-ctx.Done():
+					// Return false to not retry and return the context error directly.
+					return false, ctx.Err()
+				default:
+					// Process response as normal if context is not done.
+					var shards []ESShard
+					err := json.Unmarshal(r.Body(), &shards)
 					if err != nil {
 						return true, err
 					}
+					// shardIP := make(map[string]bool)
+					remainingShards := 0
+					for _, shard := range shards {
+						if shard.IP == podIP {
+							remainingShards++
+						}
+					}
+					c.logger().Infof("Found %d remaining shards on %s/%s (%s)", remainingShards, pod.Namespace, pod.Name, podIP)
+
+					// make sure the IP is still excluded, this could have been updated in the meantime.
+					if remainingShards > 0 {
+						err = c.excludePodIP(pod)
+						if err != nil {
+							return true, err
+						}
+					}
+					return remainingShards > 0, nil
 				}
-				return remainingShards > 0, nil
 			},
 		).R().
 		Get(c.Endpoint.String() + "/_cat/shards?h=index,ip&format=json")
