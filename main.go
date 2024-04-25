@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -21,27 +22,33 @@ import (
 )
 
 const (
-	defaultInterval           = "10s"
-	defaultAutoscalerInterval = "30s"
-	defaultMetricsAddress     = ":7979"
-	defaultClientGoTimeout    = 30 * time.Second
-	defaultClusterDNSZone     = "cluster.local."
+	defaultInterval                    = "10s"
+	defaultAutoscalerInterval          = "30s"
+	defaultMetricsAddress              = ":7979"
+	defaultClientGoTimeout             = 30 * time.Second
+	defaultClusterDNSZone              = "cluster.local."
+	defaultESClientDrainingRetry       = 999
+	defaultESClientDrainingMinWaitTime = 10 * time.Second
+	defaultESClientDrainingMaxWaitTime = 30 * time.Second
 )
 
 var (
 	config struct {
-		Interval              time.Duration
-		AutoscalerInterval    time.Duration
-		APIServer             *url.URL
-		PodSelectors          Labels
-		PriorityNodeSelectors Labels
-		MetricsAddress        string
-		ClientGoTimeout       time.Duration
-		Debug                 bool
-		OperatorID            string
-		Namespace             string
-		ClusterDNSZone        string
-		ElasticsearchEndpoint *url.URL
+		Interval                    time.Duration
+		AutoscalerInterval          time.Duration
+		APIServer                   *url.URL
+		PodSelectors                Labels
+		PriorityNodeSelectors       Labels
+		MetricsAddress              string
+		ClientGoTimeout             time.Duration
+		Debug                       bool
+		OperatorID                  string
+		Namespace                   string
+		ClusterDNSZone              string
+		ElasticsearchEndpoint       *url.URL
+		ESClientDrainingRetry       int
+		ESClientDrainingMinWaitTime time.Duration
+		ESClientDrainingMaxWaitTime time.Duration
 	}
 )
 
@@ -69,6 +76,12 @@ func main() {
 		Default(defaultClusterDNSZone).StringVar(&config.ClusterDNSZone)
 	kingpin.Flag("elasticsearch-endpoint", "The Elasticsearch endpoint to use for reaching Elasticsearch API. By default the service endpoint for the EDS is used").
 		URLVar(&config.ElasticsearchEndpoint)
+	kingpin.Flag("elasticsearch-client-draining-retry", "Number of retries for node draining in Elasticsearch client in case of errors").
+		Default(strconv.Itoa(defaultESClientDrainingRetry)).IntVar(&config.ESClientDrainingRetry)
+	kingpin.Flag("elasticsearch-client-draining-min-wait-time", "Minimum wait time between retry attempts during node draining in Elasticsearch client").
+		Default(defaultESClientDrainingMinWaitTime.String()).DurationVar(&config.ESClientDrainingMinWaitTime)
+	kingpin.Flag("elasticsearch-client-draining-max-wait-time", "Maximum wait time between retry attempts during node draining in Elasticsearch client").
+		Default(defaultESClientDrainingMaxWaitTime.String()).DurationVar(&config.ESClientDrainingMaxWaitTime)
 	kingpin.Flag("namespace", "Limit operator to a certain namespace").
 		Default(v1.NamespaceAll).StringVar(&config.Namespace)
 
