@@ -57,9 +57,9 @@ type operatingEntry struct {
 }
 
 type drainingConfig struct {
-	maxRetries              int32
-	minimumWaitTimeDuration time.Duration
-	maximumWaitTimeDuration time.Duration
+	maxRetries      int
+	minimumWaitTime time.Duration
+	maximumWaitTime time.Duration
 }
 
 // NewElasticsearchOperator initializes a new ElasticsearchDataSet operator instance.
@@ -742,15 +742,15 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *drainingConfig {
 	if eds.Spec.Draining == nil {
 		return &drainingConfig{
-			maxRetries:              999,
-			minimumWaitTimeDuration: 10 * time.Second,
-			maximumWaitTimeDuration: 30 * time.Second,
+			maxRetries:      999,
+			minimumWaitTime: 10 * time.Second,
+			maximumWaitTime: 30 * time.Second,
 		}
 	}
 	return &drainingConfig{
-		maxRetries:              eds.Spec.Draining.MaxRetries,
-		minimumWaitTimeDuration: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
-		maximumWaitTimeDuration: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
+		maxRetries:      int(eds.Spec.Draining.MaxRetries),
+		minimumWaitTime: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		maximumWaitTime: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
 	}
 }
 

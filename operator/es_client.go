@@ -359,9 +359,9 @@ func (esSettings *ESSettings) updateRebalance(value string) {
 func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 	podIP := pod.Status.PodIP
 	_, err := resty.New().
-		SetRetryCount(defaultRetryCount).
-		SetRetryWaitTime(defaultRetryWaitTime).
-		SetRetryMaxWaitTime(defaultRetryMaxWaitTime).
+		SetRetryCount(c.drainingConfig.maxRetries).
+		SetRetryWaitTime(c.drainingConfig.minimumWaitTime).
+		SetRetryMaxWaitTime(c.drainingConfig.maximumWaitTime).
 		AddRetryCondition(
 			// It is expected to return (bool, error) pair. Resty will retry
 			// in case condition returns true or non nil error.
