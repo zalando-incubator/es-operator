@@ -56,6 +56,12 @@ type operatingEntry struct {
 	logger *log.Entry
 }
 
+type DrainingSpec struct {
+	maxRetries              int32
+	minimumWaitTimeDuration time.Duration
+	maximumWaitTimeDuration time.Duration
+}
+
 // NewElasticsearchOperator initializes a new ElasticsearchDataSet operator instance.
 func NewElasticsearchOperator(
 	client *clientset.Clientset,
@@ -328,6 +334,21 @@ func (r *EDSResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 		})
 	}
 	return claims
+}
+
+func (r *EDSResource) DrainingSpec() *DrainingSpec {
+	if r.eds.Spec.Draining == nil {
+		return &DrainingSpec{
+			maxRetries:              999,
+			minimumWaitTimeDuration: 10 * time.Second,
+			maximumWaitTimeDuration: 30 * time.Second,
+		}
+	}
+	return &DrainingSpec{
+		maxRetries:              r.eds.Spec.Draining.MaxRetries,
+		minimumWaitTimeDuration: time.Duration(r.eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		maximumWaitTimeDuration: time.Duration(r.eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
+	}
 }
 
 func (r *EDSResource) EnsureResources(ctx context.Context) error {

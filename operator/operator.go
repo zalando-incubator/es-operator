@@ -58,7 +58,6 @@ type StatefulResource interface {
 	Labels() map[string]string
 	// LabelSelector returns a set of labels to be used for label selecting.
 	LabelSelector() map[string]string
-
 	// Replicas returns the desired replicas of the resource.
 	Replicas() int32
 	// PodTemplateSpec returns the pod template spec of the resource. This
@@ -67,6 +66,10 @@ type StatefulResource interface {
 	// VolumeClaimTemplates returns the volume claim templates of the
 	// resource. This is added to the underlying StatefulSet.
 	VolumeClaimTemplates() []v1.PersistentVolumeClaim
+
+	// DrainingSpec returns the draining specification which control how should we handle draining nodes.
+	DrainingSpec() *DrainingSpec
+
 	Self() runtime.Object
 
 	// EnsureResources

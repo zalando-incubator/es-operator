@@ -54,6 +54,38 @@ spec:
             description: ElasticsearchDataSetSpec is the spec part of the Elasticsearch
               dataset.
             properties:
+              draining:
+                description: Draining controls behaviour of the EDS while draining
+                  nodes
+                properties:
+                  maxRetries:
+                    default: 999
+                    description: MaxRetries specifies the maximum number of attempts
+                      to drain a node. The default value is 999.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  maximumWaitTimeDurationSeconds:
+                    default: 30
+                    description: MaximumWaitTimeDurationSeconds specifies the maximum
+                      wait time in seconds between retry attempts after a failed node
+                      drain. The default value is 30 seconds.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  minimumWaitTimeDurationSeconds:
+                    default: 10
+                    description: MinimumWaitTimeDurationSeconds specifies the minimum
+                      wait time in seconds between retry attempts after a failed node
+                      drain. The default value is 10 seconds.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                required:
+                - maxRetries
+                - maximumWaitTimeDurationSeconds
+                - minimumWaitTimeDurationSeconds
+                type: object
               excludeSystemIndices:
                 description: Exclude management of System Indices on this Data Set.
                   Defaults to false

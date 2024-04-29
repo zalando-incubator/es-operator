@@ -42,6 +42,10 @@ type ElasticsearchDataSetSpec struct {
 	// +optional
 	SkipDraining bool `json:"skipDraining"`
 
+	// Draining controls behaviour of the EDS while draining nodes
+	// +optional
+	Draining *ElasticsearchDataSetDraining `json:"draining,omitempty"`
+
 	// // serviceName is the name of the service that governs this StatefulSet.
 	// // This service must exist before the StatefulSet, and is responsible for
 	// // the network identity of the set. Pods get DNS/hostnames that follow the
@@ -57,6 +61,28 @@ type ElasticsearchDataSetSpec struct {
 
 	// Template describe the volumeClaimTemplates
 	VolumeClaimTemplates []PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty" protobuf:"bytes,4,rep,name=volumeClaimTemplates"`
+}
+
+// ElasticsearchDataSetDraining represents the configuration for draining nodes within an ElasticsearchDataSet.
+// +k8s:deepcopy-gen=true
+type ElasticsearchDataSetDraining struct {
+
+	// MaxRetries specifies the maximum number of attempts to drain a node. The default value is 999.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=999
+	MaxRetries int32 `json:"maxRetries"`
+
+	// MinimumWaitTimeDurationSeconds specifies the minimum wait time in seconds between retry attempts after a failed node drain.
+	// The default value is 10 seconds.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=10
+	MinimumWaitTimeDurationSeconds int64 `json:"minimumWaitTimeDurationSeconds"`
+
+	// MaximumWaitTimeDurationSeconds specifies the maximum wait time in seconds between retry attempts after a failed node drain.
+	// The default value is 30 seconds.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=30
+	MaximumWaitTimeDurationSeconds int64 `json:"maximumWaitTimeDurationSeconds"`
 }
 
 // PersistentVolumeClaim is a user's request for and claim to a persistent volume

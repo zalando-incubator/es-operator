@@ -15,17 +15,16 @@ import (
 )
 
 type mockResource struct {
-	apiVersion    string
-	kind          string
-	name          string
-	namespace     string
-	uid           types.UID
-	generation    int64
-	labels        map[string]string
-	labelSelector map[string]string
-	replicas      int32
-	eds           *zv1.ElasticsearchDataSet
-
+	apiVersion           string
+	kind                 string
+	name                 string
+	namespace            string
+	uid                  types.UID
+	generation           int64
+	labels               map[string]string
+	labelSelector        map[string]string
+	replicas             int32
+	eds                  *zv1.ElasticsearchDataSet
 	podTemplateSpec      *v1.PodTemplateSpec
 	volumeClaimTemplates []v1.PersistentVolumeClaim
 }
@@ -42,6 +41,10 @@ func (r *mockResource) Replicas() int32                      { return r.replicas
 func (r *mockResource) PodTemplateSpec() *v1.PodTemplateSpec { return r.podTemplateSpec }
 func (r *mockResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 	return r.volumeClaimTemplates
+}
+func (r *mockResource) DrainingSpec() *DrainingSpec {
+	//TODO: Write tests for testing draining specification
+	return nil
 }
 func (r *mockResource) Self() runtime.Object                                            { return r.eds }
 func (r *mockResource) EnsureResources(ctx context.Context) error                       { return nil }
