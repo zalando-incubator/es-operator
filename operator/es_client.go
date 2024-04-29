@@ -4,25 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/es-operator/operator/null"
+	"gopkg.in/resty.v1"
+	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/zalando-incubator/es-operator/operator/null"
-	"gopkg.in/resty.v1"
-	v1 "k8s.io/api/core/v1"
-)
-
-// TODO make configurable as flags.
-var (
-	defaultRetryCount       = 999
-	defaultRetryWaitTime    = 10 * time.Second
-	defaultRetryMaxWaitTime = 30 * time.Second
 )
 
 // ESClient is a pod drainer which can drain data from Elasticsearch pods.
