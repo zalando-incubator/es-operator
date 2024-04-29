@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/zalando-incubator/es-operator/operator/null"
-	"gopkg.in/resty.v1"
-	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/es-operator/operator/null"
+	"gopkg.in/resty.v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // ESClient is a pod drainer which can drain data from Elasticsearch pods.
