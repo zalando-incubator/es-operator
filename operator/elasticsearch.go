@@ -56,10 +56,10 @@ type operatingEntry struct {
 	logger *log.Entry
 }
 
-type drainingConfig struct {
-	maxRetries      int
-	minimumWaitTime time.Duration
-	maximumWaitTime time.Duration
+type DrainingConfig struct {
+	MaxRetries      int
+	MinimumWaitTime time.Duration
+	MaximumWaitTime time.Duration
 }
 
 // NewElasticsearchOperator initializes a new ElasticsearchDataSet operator instance.
@@ -250,7 +250,7 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 					client := &ESClient{
 						Endpoint:             endpoint,
 						excludeSystemIndices: es.ElasticsearchDataSet.Spec.ExcludeSystemIndices,
-						drainingConfig:       o.getDrainingConfig(es.ElasticsearchDataSet),
+						DrainingConfig:       o.getDrainingConfig(es.ElasticsearchDataSet),
 					}
 
 					err := o.scaleEDS(ctx, es.ElasticsearchDataSet, es, client)
@@ -683,7 +683,7 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 	// TODO: abstract this
 	client := &ESClient{
 		Endpoint:       endpoint,
-		drainingConfig: o.getDrainingConfig(eds),
+		DrainingConfig: o.getDrainingConfig(eds),
 	}
 
 	operator := &Operator{
@@ -738,19 +738,19 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 	}
 }
 
-// drainingConfig returns the draining specification which control how should we handle draining nodes.
-func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *drainingConfig {
+// DrainingConfig returns the draining specification which control how should we handle draining nodes.
+func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *DrainingConfig {
 	if eds.Spec.Draining == nil {
-		return &drainingConfig{
-			maxRetries:      999,
-			minimumWaitTime: 10 * time.Second,
-			maximumWaitTime: 30 * time.Second,
+		return &DrainingConfig{
+			MaxRetries:      999,
+			MinimumWaitTime: 10 * time.Second,
+			MaximumWaitTime: 30 * time.Second,
 		}
 	}
-	return &drainingConfig{
-		maxRetries:      int(eds.Spec.Draining.MaxRetries),
-		minimumWaitTime: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
-		maximumWaitTime: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
+	return &DrainingConfig{
+		MaxRetries:      int(eds.Spec.Draining.MaxRetries),
+		MinimumWaitTime: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		MaximumWaitTime: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
 	}
 }
 

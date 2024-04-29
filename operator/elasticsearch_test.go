@@ -79,9 +79,9 @@ func TestGetEmptyElasticSearchDrainingSpec(t *testing.T) {
 
 	config := esOperator.getDrainingConfig(eds)
 	assert.NotNil(t, config)
-	assert.Equal(t, config.maxRetries, 999)
-	assert.Equal(t, config.minimumWaitTime, 10*time.Second)
-	assert.Equal(t, config.maximumWaitTime, 30*time.Second)
+	assert.Equal(t, config.MaxRetries, 999)
+	assert.Equal(t, config.MinimumWaitTime, 10*time.Second)
+	assert.Equal(t, config.MaximumWaitTime, 30*time.Second)
 }
 
 func TestGetNotEmptyElasticSearchDrainingSpec(t *testing.T) {
@@ -106,9 +106,9 @@ func TestGetNotEmptyElasticSearchDrainingSpec(t *testing.T) {
 
 	config := esOperator.getDrainingConfig(eds)
 	assert.NotNil(t, config)
-	assert.Equal(t, config.maxRetries, 7)
-	assert.Equal(t, config.minimumWaitTime, 2*time.Second)
-	assert.Equal(t, config.maximumWaitTime, 34*time.Second)
+	assert.Equal(t, config.MaxRetries, 7)
+	assert.Equal(t, config.MinimumWaitTime, 2*time.Second)
+	assert.Equal(t, config.MaximumWaitTime, 34*time.Second)
 }
 
 func TestGetOwnerUID(t *testing.T) {

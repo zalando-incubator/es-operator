@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -29,8 +30,14 @@ func TestDrain(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
 
 	esUrl, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: esUrl,
+		Endpoint:       esUrl,
+		DrainingConfig: config,
 	}
 	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
@@ -89,8 +96,14 @@ func TestDrainWithTransientSettings(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
 
 	esUrl, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: esUrl,
+		Endpoint:       esUrl,
+		DrainingConfig: config,
 	}
 	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
@@ -119,8 +132,14 @@ func TestCleanup(t *testing.T) {
 		httpmock.NewStringResponder(200, `{}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	err := systemUnderTest.Cleanup(context.TODO())
@@ -141,8 +160,14 @@ func TestGetNodes(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"ip":"10.2.10.2","dup":"22.92"},{"ip":"10.2.16.2","dup":"11.17"},{"ip":"10.2.23.2","dup":"10.97"},{"ip":"10.2.11.3","dup":"18.95"},{"ip":"10.2.25.4","dup":"21.26"},{"ip":"10.2.4.21","dup":"33.19"},{"ip":"10.2.60.19","dup":"21.60"},{"ip":"10.2.19.5","dup":"16.55"},{"ip":"10.2.27.11","dup":"29.80"},{"ip":"10.2.24.13","dup":"31.25"},{"ip":"10.2.18.2","dup":"12.94"}]`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	nodes, err := systemUnderTest.GetNodes()
@@ -210,8 +235,14 @@ func TestUpdateIndexSettings(t *testing.T) {
 		httpmock.NewStringResponder(200, `{}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	indices := make([]ESIndex, 0, 1)
@@ -235,8 +266,14 @@ func TestUpdateIndexSettingsIgnoresUnknownIndex(t *testing.T) {
 		httpmock.NewStringResponder(404, `{}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	indices := make([]ESIndex, 0, 1)
@@ -260,8 +297,14 @@ func TestCreateIndex(t *testing.T) {
 		httpmock.NewStringResponder(200, `{}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	err := systemUnderTest.CreateIndex("myindex", "mygroup", 2, 2)
@@ -278,8 +321,14 @@ func TestDeleteIndex(t *testing.T) {
 		httpmock.NewStringResponder(200, `{}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	err := systemUnderTest.DeleteIndex("myindex")
@@ -295,8 +344,14 @@ func TestEnsureGreenClusterState(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"status":"yellow"}`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
-		Endpoint: url,
+		Endpoint:       url,
+		DrainingConfig: config,
 	}
 
 	err := systemUnderTest.ensureGreenClusterState()
@@ -312,9 +367,15 @@ func TestExcludeSystemIndices(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"index":".system","pri":"1","rep":"1"},{"index":"a","pri":"1","rep":"1"}]`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
 	systemUnderTest := &ESClient{
 		Endpoint:             url,
 		excludeSystemIndices: true,
+		DrainingConfig:       config,
 	}
 	indices, err := systemUnderTest.GetIndices()
 

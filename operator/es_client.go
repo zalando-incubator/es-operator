@@ -21,7 +21,7 @@ type ESClient struct {
 	Endpoint             *url.URL
 	mux                  sync.Mutex
 	excludeSystemIndices bool
-	drainingConfig       *drainingConfig
+	DrainingConfig       *DrainingConfig
 }
 
 // ESIndex represent an index to be used in public APIs
@@ -350,9 +350,9 @@ func (esSettings *ESSettings) updateRebalance(value string) {
 func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 	podIP := pod.Status.PodIP
 	_, err := resty.New().
-		SetRetryCount(c.drainingConfig.maxRetries).
-		SetRetryWaitTime(c.drainingConfig.minimumWaitTime).
-		SetRetryMaxWaitTime(c.drainingConfig.maximumWaitTime).
+		SetRetryCount(c.DrainingConfig.MaxRetries).
+		SetRetryWaitTime(c.DrainingConfig.MinimumWaitTime).
+		SetRetryMaxWaitTime(c.DrainingConfig.MaximumWaitTime).
 		AddRetryCondition(
 			// It is expected to return (bool, error) pair. Resty will retry
 			// in case condition returns true or non nil error.

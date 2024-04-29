@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/es-operator/operator"
@@ -90,5 +91,10 @@ func setupESClient(defaultServiceEndpoint, version string) (*operator.ESClient, 
 	if err != nil {
 		return nil, err
 	}
-	return &operator.ESClient{Endpoint: endpoint}, nil
+	config := &operator.DrainingConfig{
+		MaxRetries:      999,
+		MinimumWaitTime: 10 * time.Second,
+		MaximumWaitTime: 30 * time.Second,
+	}
+	return &operator.ESClient{Endpoint: endpoint, DrainingConfig: config}, nil
 }
