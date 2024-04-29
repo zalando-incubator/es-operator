@@ -64,8 +64,51 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	assert.Equal(t, customURL, url.String())
 }
 
-func TestGetElasticSearchDrainingSpec(t *testing.T) {
-	//TODO: Implement the test
+func TestGetEmptyElasticSearchDrainingSpec(t *testing.T) {
+	faker := &clientset.Clientset{
+		Interface: fake.NewSimpleClientset(),
+	}
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+
+	eds := &zv1.ElasticsearchDataSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+	}
+
+	config := esOperator.getDrainingConfig(eds)
+	assert.NotNil(t, config)
+	assert.Equal(t, config.maxRetries, 999)
+	assert.Equal(t, config.minimumWaitTimeDuration, 10*time.Second)
+	assert.Equal(t, config.maximumWaitTimeDuration, 30*time.Second)
+}
+
+func TestGetNotEmptyElasticSearchDrainingSpec(t *testing.T) {
+	faker := &clientset.Clientset{
+		Interface: fake.NewSimpleClientset(),
+	}
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+
+	eds := &zv1.ElasticsearchDataSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: zv1.ElasticsearchDataSetSpec{
+			Draining: &zv1.ElasticsearchDataSetDraining{
+				MaxRetries:                     7,
+				MinimumWaitTimeDurationSeconds: 2,
+				MaximumWaitTimeDurationSeconds: 34,
+			},
+		},
+	}
+
+	config := esOperator.getDrainingConfig(eds)
+	assert.NotNil(t, config)
+	assert.Equal(t, config.maxRetries, 7)
+	assert.Equal(t, config.minimumWaitTimeDuration, 2*time.Second)
+	assert.Equal(t, config.maximumWaitTimeDuration, 34*time.Second)
 }
 
 func TestGetOwnerUID(t *testing.T) {
