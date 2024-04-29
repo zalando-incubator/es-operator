@@ -42,10 +42,6 @@ func (r *mockResource) PodTemplateSpec() *v1.PodTemplateSpec { return r.podTempl
 func (r *mockResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 	return r.volumeClaimTemplates
 }
-func (r *mockResource) DrainingSpec() *DrainingSpec {
-	//TODO: Write tests for testing draining specification
-	return nil
-}
 func (r *mockResource) Self() runtime.Object                                            { return r.eds }
 func (r *mockResource) EnsureResources(ctx context.Context) error                       { return nil }
 func (r *mockResource) UpdateStatus(ctx context.Context, sts *appsv1.StatefulSet) error { return nil }

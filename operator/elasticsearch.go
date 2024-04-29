@@ -56,7 +56,7 @@ type operatingEntry struct {
 	logger *log.Entry
 }
 
-type DrainingSpec struct {
+type drainingConfig struct {
 	maxRetries              int32
 	minimumWaitTimeDuration time.Duration
 	maximumWaitTimeDuration time.Duration
@@ -247,10 +247,10 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 			for _, es := range resources {
 				if es.ElasticsearchDataSet.Spec.Scaling != nil && es.ElasticsearchDataSet.Spec.Scaling.Enabled {
 					endpoint := o.getElasticsearchEndpoint(es.ElasticsearchDataSet)
-
 					client := &ESClient{
 						Endpoint:             endpoint,
 						excludeSystemIndices: es.ElasticsearchDataSet.Spec.ExcludeSystemIndices,
+						drainingConfig:       o.getDrainingConfig(es.ElasticsearchDataSet),
 					}
 
 					err := o.scaleEDS(ctx, es.ElasticsearchDataSet, es, client)
@@ -334,21 +334,6 @@ func (r *EDSResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 		})
 	}
 	return claims
-}
-
-func (r *EDSResource) DrainingSpec() *DrainingSpec {
-	if r.eds.Spec.Draining == nil {
-		return &DrainingSpec{
-			maxRetries:              999,
-			minimumWaitTimeDuration: 10 * time.Second,
-			maximumWaitTimeDuration: 30 * time.Second,
-		}
-	}
-	return &DrainingSpec{
-		maxRetries:              r.eds.Spec.Draining.MaxRetries,
-		minimumWaitTimeDuration: time.Duration(r.eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
-		maximumWaitTimeDuration: time.Duration(r.eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
-	}
 }
 
 func (r *EDSResource) EnsureResources(ctx context.Context) error {
@@ -697,7 +682,8 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 
 	// TODO: abstract this
 	client := &ESClient{
-		Endpoint: endpoint,
+		Endpoint:       endpoint,
+		drainingConfig: o.getDrainingConfig(eds),
 	}
 
 	operator := &Operator{
@@ -749,6 +735,22 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 			o.clusterDNSZone,
 			defaultElasticsearchDataSetEndpointPort,
 		),
+	}
+}
+
+// drainingConfig returns the draining specification which control how should we handle draining nodes.
+func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *drainingConfig {
+	if eds.Spec.Draining == nil {
+		return &drainingConfig{
+			maxRetries:              999,
+			minimumWaitTimeDuration: 10 * time.Second,
+			maximumWaitTimeDuration: 30 * time.Second,
+		}
+	}
+	return &drainingConfig{
+		maxRetries:              eds.Spec.Draining.MaxRetries,
+		minimumWaitTimeDuration: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		maximumWaitTimeDuration: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
 	}
 }
 

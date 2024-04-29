@@ -64,6 +64,10 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	assert.Equal(t, customURL, url.String())
 }
 
+func TestGetElasticSearchDrainingSpec(t *testing.T) {
+	//TODO: Implement the test
+}
+
 func TestGetOwnerUID(t *testing.T) {
 	objectMeta := metav1.ObjectMeta{
 		OwnerReferences: []metav1.OwnerReference{

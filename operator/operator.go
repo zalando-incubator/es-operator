@@ -67,9 +67,6 @@ type StatefulResource interface {
 	// resource. This is added to the underlying StatefulSet.
 	VolumeClaimTemplates() []v1.PersistentVolumeClaim
 
-	// DrainingSpec returns the draining specification which control how should we handle draining nodes.
-	DrainingSpec() *DrainingSpec
-
 	Self() runtime.Object
 
 	// EnsureResources

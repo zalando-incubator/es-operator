@@ -30,6 +30,7 @@ type ESClient struct {
 	Endpoint             *url.URL
 	mux                  sync.Mutex
 	excludeSystemIndices bool
+	drainingConfig       *drainingConfig
 }
 
 // ESIndex represent an index to be used in public APIs
