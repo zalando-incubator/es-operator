@@ -35,11 +35,11 @@ func TestDrain(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       esUrl,
 		DrainingConfig: config,
 	}
-	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
+	err := client.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
 		},
@@ -101,11 +101,11 @@ func TestDrainWithTransientSettings(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       esUrl,
 		DrainingConfig: config,
 	}
-	err := systemUnderTest.Drain(context.TODO(), &v1.Pod{
+	err := client.Drain(context.TODO(), &v1.Pod{
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
 		},
@@ -137,12 +137,12 @@ func TestCleanup(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
 
-	err := systemUnderTest.Cleanup(context.TODO())
+	err := client.Cleanup(context.TODO())
 
 	assert.NoError(t, err)
 
@@ -165,12 +165,12 @@ func TestGetNodes(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
 
-	nodes, err := systemUnderTest.GetNodes()
+	nodes, err := client.GetNodes()
 
 	assert.NoError(t, err)
 
@@ -188,11 +188,11 @@ func TestGetShards(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"index":"a","ip":"10.2.19.5"},{"index":"b","ip":"10.2.10.2"},{"index":"c","ip":"10.2.16.2"}]`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint: url,
 	}
 
-	shards, err := systemUnderTest.GetShards()
+	shards, err := client.GetShards()
 
 	assert.NoError(t, err)
 
@@ -210,11 +210,11 @@ func TestGetIndices(t *testing.T) {
 		httpmock.NewStringResponder(200, `[{"index":"a","pri":"2","rep":"1"},{"index":"b","pri":"3","rep":"1"},{"index":"c","pri":"6","rep":"1"}]`))
 
 	url, _ := url.Parse("http://elasticsearch:9200")
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint: url,
 	}
 
-	indices, err := systemUnderTest.GetIndices()
+	indices, err := client.GetIndices()
 
 	assert.NoError(t, err)
 
@@ -240,7 +240,7 @@ func TestUpdateIndexSettings(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
@@ -251,7 +251,7 @@ func TestUpdateIndexSettings(t *testing.T) {
 		Replicas:  1,
 		Index:     "myindex",
 	})
-	err := systemUnderTest.UpdateIndexSettings(indices)
+	err := client.UpdateIndexSettings(indices)
 
 	assert.NoError(t, err)
 }
@@ -271,7 +271,7 @@ func TestUpdateIndexSettingsIgnoresUnknownIndex(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
@@ -282,7 +282,7 @@ func TestUpdateIndexSettingsIgnoresUnknownIndex(t *testing.T) {
 		Replicas:  1,
 		Index:     "myindex",
 	})
-	err := systemUnderTest.UpdateIndexSettings(indices)
+	err := client.UpdateIndexSettings(indices)
 	info := httpmock.GetCallCountInfo()
 
 	assert.NoError(t, err)
@@ -302,12 +302,12 @@ func TestCreateIndex(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
 
-	err := systemUnderTest.CreateIndex("myindex", "mygroup", 2, 2)
+	err := client.CreateIndex("myindex", "mygroup", 2, 2)
 
 	assert.NoError(t, err)
 
@@ -326,12 +326,12 @@ func TestDeleteIndex(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
 
-	err := systemUnderTest.DeleteIndex("myindex")
+	err := client.DeleteIndex("myindex")
 
 	assert.NoError(t, err)
 }
@@ -349,12 +349,12 @@ func TestEnsureGreenClusterState(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:       url,
 		DrainingConfig: config,
 	}
 
-	err := systemUnderTest.ensureGreenClusterState()
+	err := client.ensureGreenClusterState()
 
 	assert.Error(t, err)
 }
@@ -372,12 +372,12 @@ func TestExcludeSystemIndices(t *testing.T) {
 		MinimumWaitTime: 10 * time.Second,
 		MaximumWaitTime: 30 * time.Second,
 	}
-	systemUnderTest := &ESClient{
+	client := &ESClient{
 		Endpoint:             url,
 		excludeSystemIndices: true,
 		DrainingConfig:       config,
 	}
-	indices, err := systemUnderTest.GetIndices()
+	indices, err := client.GetIndices()
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(indices), indices)
