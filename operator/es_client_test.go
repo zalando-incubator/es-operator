@@ -120,6 +120,52 @@ func TestDrainWithTransientSettings(t *testing.T) {
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cat/shards"])
 }
 
+func TestDrainRetriesUntilMax(t *testing.T) {
+
+	// Given
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	// Mock responses for the Elasticsearch endpoints
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(http.StatusOK, `{"persistent":{"cluster":{"routing":{"rebalance":{"enable":"all"}}}}}`))
+	httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+		httpmock.NewStringResponder(http.StatusOK, `{}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/health",
+		httpmock.NewStringResponder(http.StatusOK, `{"status":"green"}`))
+	httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cat/shards",
+		httpmock.NewStringResponder(http.StatusInternalServerError, `{}`))
+
+	// Configuration for draining client
+	esUrl, _ := url.Parse("http://elasticsearch:9200")
+	config := &DrainingConfig{
+		MaxRetries:      5,
+		MinimumWaitTime: 1 * time.Millisecond,
+		MaximumWaitTime: 3 * time.Millisecond,
+	}
+	client := &ESClient{
+		Endpoint:       esUrl,
+		DrainingConfig: config,
+	}
+
+	// When
+	err := client.Drain(context.TODO(), &v1.Pod{
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	})
+
+	// Then
+	assert.NoError(t, err)
+
+	// Verify the number of calls made to each endpoint
+	info := httpmock.GetCallCountInfo()
+	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
+	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
+	require.EqualValues(t, 5, info["GET http://elasticsearch:9200/_cat/shards"])
+}
+
 func TestCleanup(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
