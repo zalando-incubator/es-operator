@@ -42,10 +42,6 @@ type ElasticsearchDataSetSpec struct {
 	// +optional
 	SkipDraining bool `json:"skipDraining"`
 
-	// Draining controls behaviour of the EDS while draining nodes
-	// +optional
-	Draining *ElasticsearchDataSetDraining `json:"draining,omitempty"`
-
 	// // serviceName is the name of the service that governs this StatefulSet.
 	// // This service must exist before the StatefulSet, and is responsible for
 	// // the network identity of the set. Pods get DNS/hostnames that follow the
@@ -61,6 +57,20 @@ type ElasticsearchDataSetSpec struct {
 
 	// Template describe the volumeClaimTemplates
 	VolumeClaimTemplates []PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty" protobuf:"bytes,4,rep,name=volumeClaimTemplates"`
+
+	// Experimental represents configurations marked as experimental that may change in future releases.
+	// Currently, manages the draining behavior.
+	// +optional
+	Experimental *ExperimentalSpec `json:"experimental,omitempty"`
+}
+
+// ExperimentalSpec represents the configurations that might change in the future.
+// IMPORTANT: These fields might change in a none backward compatible manner.
+// +k8s:deepcopy-gen=true
+type ExperimentalSpec struct {
+	// Draining controls behaviour of the EDS while draining nodes
+	// +optional
+	Draining *ElasticsearchDataSetDraining `json:"draining,omitempty"`
 }
 
 // ElasticsearchDataSetDraining represents the configuration for draining nodes within an ElasticsearchDataSet.

@@ -740,7 +740,8 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 
 // DrainingConfig returns the draining specification which control how should we handle draining nodes.
 func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *DrainingConfig {
-	if eds.Spec.Draining == nil {
+	// Fallback to default configurations if draining configuration is not specified.
+	if eds.Spec.Experimental == nil || eds.Spec.Experimental.Draining == nil {
 		return &DrainingConfig{
 			MaxRetries:      999,
 			MinimumWaitTime: 10 * time.Second,
@@ -748,9 +749,9 @@ func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet)
 		}
 	}
 	return &DrainingConfig{
-		MaxRetries:      int(eds.Spec.Draining.MaxRetries),
-		MinimumWaitTime: time.Duration(eds.Spec.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
-		MaximumWaitTime: time.Duration(eds.Spec.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
+		MaxRetries:      int(eds.Spec.Experimental.Draining.MaxRetries),
+		MinimumWaitTime: time.Duration(eds.Spec.Experimental.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		MaximumWaitTime: time.Duration(eds.Spec.Experimental.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
 	}
 }
 
