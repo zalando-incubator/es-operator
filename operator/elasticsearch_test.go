@@ -96,10 +96,12 @@ func TestGetNotEmptyElasticSearchDrainingSpec(t *testing.T) {
 			Namespace: "bar",
 		},
 		Spec: zv1.ElasticsearchDataSetSpec{
-			Draining: &zv1.ElasticsearchDataSetDraining{
-				MaxRetries:                     7,
-				MinimumWaitTimeDurationSeconds: 2,
-				MaximumWaitTimeDurationSeconds: 34,
+			Experimental: &zv1.ExperimentalSpec{
+				Draining: &zv1.ElasticsearchDataSetDraining{
+					MaxRetries:                     7,
+					MinimumWaitTimeDurationSeconds: 2,
+					MaximumWaitTimeDurationSeconds: 34,
+				},
 			},
 		},
 	}

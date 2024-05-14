@@ -56,6 +56,7 @@ type operatingEntry struct {
 	logger *log.Entry
 }
 
+// DrainingConfig specifies the configuration settings for the behavior of draining Elasticsearch nodes.
 type DrainingConfig struct {
 	MaxRetries      int
 	MinimumWaitTime time.Duration
