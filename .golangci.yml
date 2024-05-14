@@ -1,16 +1,21 @@
 run:
 linters-settings:
-  golint:
-    min-confidence: 0.9
-  gocyclo:
-      min-complexity: 15
+  revive:
+    rules:
+      # Adjust rules related to code simplicity, readability, and maintainability
+      - name: exported
+        severity: warning
+      - name: cyclomatic
+        severity: warning
+        arguments: [20]  # Set the maximum allowed cyclomatic complexity to 20
+
 
 linters:
   disable-all: true
   enable:
     - staticcheck
     - ineffassign
-    - golint
+    - revive
     - goimports
     - errcheck
 issues:
