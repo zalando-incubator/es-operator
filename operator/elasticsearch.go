@@ -56,6 +56,13 @@ type operatingEntry struct {
 	logger *log.Entry
 }
 
+// DrainingConfig specifies the configuration settings for the behavior of draining Elasticsearch nodes.
+type DrainingConfig struct {
+	MaxRetries      int
+	MinimumWaitTime time.Duration
+	MaximumWaitTime time.Duration
+}
+
 // NewElasticsearchOperator initializes a new ElasticsearchDataSet operator instance.
 func NewElasticsearchOperator(
 	client *clientset.Clientset,
@@ -241,10 +248,10 @@ func (o *ElasticsearchOperator) runAutoscaler(ctx context.Context) {
 			for _, es := range resources {
 				if es.ElasticsearchDataSet.Spec.Scaling != nil && es.ElasticsearchDataSet.Spec.Scaling.Enabled {
 					endpoint := o.getElasticsearchEndpoint(es.ElasticsearchDataSet)
-
 					client := &ESClient{
 						Endpoint:             endpoint,
 						excludeSystemIndices: es.ElasticsearchDataSet.Spec.ExcludeSystemIndices,
+						DrainingConfig:       o.getDrainingConfig(es.ElasticsearchDataSet),
 					}
 
 					err := o.scaleEDS(ctx, es.ElasticsearchDataSet, es, client)
@@ -676,7 +683,8 @@ func (o *ElasticsearchOperator) operateEDS(eds *zv1.ElasticsearchDataSet, delete
 
 	// TODO: abstract this
 	client := &ESClient{
-		Endpoint: endpoint,
+		Endpoint:       endpoint,
+		DrainingConfig: o.getDrainingConfig(eds),
 	}
 
 	operator := &Operator{
@@ -728,6 +736,23 @@ func (o *ElasticsearchOperator) getElasticsearchEndpoint(eds *zv1.ElasticsearchD
 			o.clusterDNSZone,
 			defaultElasticsearchDataSetEndpointPort,
 		),
+	}
+}
+
+// DrainingConfig returns the draining specification which control how should we handle draining nodes.
+func (o *ElasticsearchOperator) getDrainingConfig(eds *zv1.ElasticsearchDataSet) *DrainingConfig {
+	// Fallback to default configurations if draining configuration is not specified.
+	if eds.Spec.Experimental == nil || eds.Spec.Experimental.Draining == nil {
+		return &DrainingConfig{
+			MaxRetries:      999,
+			MinimumWaitTime: 10 * time.Second,
+			MaximumWaitTime: 30 * time.Second,
+		}
+	}
+	return &DrainingConfig{
+		MaxRetries:      int(eds.Spec.Experimental.Draining.MaxRetries),
+		MinimumWaitTime: time.Duration(eds.Spec.Experimental.Draining.MinimumWaitTimeDurationSeconds) * time.Second,
+		MaximumWaitTime: time.Duration(eds.Spec.Experimental.Draining.MaximumWaitTimeDurationSeconds) * time.Second,
 	}
 }
 

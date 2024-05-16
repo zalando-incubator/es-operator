@@ -15,17 +15,16 @@ import (
 )
 
 type mockResource struct {
-	apiVersion    string
-	kind          string
-	name          string
-	namespace     string
-	uid           types.UID
-	generation    int64
-	labels        map[string]string
-	labelSelector map[string]string
-	replicas      int32
-	eds           *zv1.ElasticsearchDataSet
-
+	apiVersion           string
+	kind                 string
+	name                 string
+	namespace            string
+	uid                  types.UID
+	generation           int64
+	labels               map[string]string
+	labelSelector        map[string]string
+	replicas             int32
+	eds                  *zv1.ElasticsearchDataSet
 	podTemplateSpec      *v1.PodTemplateSpec
 	volumeClaimTemplates []v1.PersistentVolumeClaim
 }

@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/es-operator/operator/null"
@@ -18,18 +17,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// TODO make configurable as flags.
-var (
-	defaultRetryCount       = 999
-	defaultRetryWaitTime    = 10 * time.Second
-	defaultRetryMaxWaitTime = 30 * time.Second
-)
-
 // ESClient is a pod drainer which can drain data from Elasticsearch pods.
 type ESClient struct {
 	Endpoint             *url.URL
 	mux                  sync.Mutex
 	excludeSystemIndices bool
+	DrainingConfig       *DrainingConfig
 }
 
 // ESIndex represent an index to be used in public APIs
@@ -358,9 +351,9 @@ func (esSettings *ESSettings) updateRebalance(value string) {
 func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 	podIP := pod.Status.PodIP
 	_, err := resty.New().
-		SetRetryCount(defaultRetryCount).
-		SetRetryWaitTime(defaultRetryWaitTime).
-		SetRetryMaxWaitTime(defaultRetryMaxWaitTime).
+		SetRetryCount(c.DrainingConfig.MaxRetries).
+		SetRetryWaitTime(c.DrainingConfig.MinimumWaitTime).
+		SetRetryMaxWaitTime(c.DrainingConfig.MaximumWaitTime).
 		AddRetryCondition(
 			// It is expected to return (bool, error) pair. Resty will retry
 			// in case condition returns true or non nil error.
