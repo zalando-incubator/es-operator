@@ -366,8 +366,10 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 					// Process response as normal if context is not done.
 					var shards []ESShard
 					body := r.Body()
-					c.logger().Debugf("Request to %s/_cat/shards?h=index,ip&format=json status code %d - %s  on %s/%s (%s)",
-						c.Endpoint.String(), r.StatusCode(), string(body[:]), pod.Namespace, pod.Name, podIP)
+					if c.logger().Logger.Level >= log.DebugLevel {
+						c.logger().Debugf("Request to %s/_cat/shards?h=index,ip&format=json status code %d - %s  on %s/%s (%s)",
+							c.Endpoint.String(), r.StatusCode(), string(body[:]), pod.Namespace, pod.Name, podIP)
+					}
 					err := json.Unmarshal(body, &shards)
 					if err != nil {
 						c.logger().Debugf("Error unmarshalling ES shards on %s/%s (%s) - %v",
