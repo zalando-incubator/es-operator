@@ -176,7 +176,7 @@ func (c *ESClient) Drain(ctx context.Context, pod *v1.Pod) error {
 		return err
 	}
 	c.logger().Infof("Excluding pod %s/%s from shard allocation", pod.Namespace, pod.Name)
-	err = c.excludePodIP(pod)
+	err = c.excludePodIP(pod.Status.PodIP)
 	if err != nil {
 		return err
 	}
@@ -272,41 +272,41 @@ func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	return &esSettings, nil
 }
 
-// adds the podIP to Elasticsearch exclude._ip list
-func (c *ESClient) excludePodIP(pod *v1.Pod) error {
-
+// excludePodIP adds the podIP to Elasticsearch exclude._ip list
+func (c *ESClient) excludePodIP(podIP string) error {
 	c.mux.Lock()
+	defer c.mux.Unlock()
 
-	podIP := pod.Status.PodIP
-
+	// Fetch current cluster settings
 	esSettings, err := c.getClusterSettings()
 	if err != nil {
-		c.mux.Unlock()
 		return err
 	}
 
-	excludeString := esSettings.GetPersistentExcludeIPs().ValueOrZero()
-
-	// add pod IP to exclude list
-	ips := []string{}
-	if excludeString != "" {
-		ips = strings.Split(excludeString, ",")
+	// Get the current exclude IPs
+	esExcludedIPsString := esSettings.GetPersistentExcludeIPs().ValueOrZero()
+	var esExcludedIPs []string
+	if esExcludedIPsString != "" {
+		esExcludedIPs = strings.Split(esExcludedIPsString, ",")
 	}
-	var foundPodIP bool
-	for _, ip := range ips {
+
+	// Check if pod IP is already in the list
+	for _, ip := range esExcludedIPs {
 		if ip == podIP {
-			foundPodIP = true
-			break
+			// Pod IP is already in the exclude list, no need to add
+			return nil
 		}
 	}
-	if !foundPodIP {
-		ips = append(ips, podIP)
-		sort.Strings(ips)
-		err = c.setExcludeIPs(strings.Join(ips, ","), esSettings)
-	}
 
-	c.mux.Unlock()
-	return err
+	// Add pod IP to the list
+	esExcludedIPs = append(esExcludedIPs, podIP)
+	sort.Strings(esExcludedIPs)
+	newESExcludedPodIPsString := strings.Join(esExcludedIPs, ",")
+
+	c.logger().Infof("Updating exclude._ip list to '%s' after adding IP '%s'", newESExcludedPodIPsString, podIP)
+
+	// Update exclude._ip setting
+	return c.setExcludeIPs(newESExcludedPodIPsString, esSettings)
 }
 
 // undoExcludePodIP Removes the pod's IP from Elasticsearch exclude._ip list
@@ -422,7 +422,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 
 					// make sure the IP is still excluded, this could have been updated in the meantime.
 					if remainingShards > 0 {
-						err = c.excludePodIP(pod)
+						err = c.excludePodIP(pod.Status.PodIP)
 						if err != nil {
 							return true, err
 						}

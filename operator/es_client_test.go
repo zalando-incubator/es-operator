@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -570,5 +571,88 @@ func TestESSettingsMergeNonEmtpyTransientSettings(t *testing.T) {
 			assert.Equal(t, tt.expected.GetPersistentExcludeIPs(), esSettings.GetPersistentExcludeIPs())
 			assert.Equal(t, tt.expected.GetTransientExcludeIPs(), esSettings.GetTransientExcludeIPs())
 		})
+	}
+}
+
+func TestExcludePodIP(t *testing.T) {
+	tests := []struct {
+		name                string
+		podIP               string
+		getSettingsResponse *http.Response
+		putSettingsResponse *http.Response
+		expectedExcludedIPs string
+		expectedErr         error
+	}{
+		{
+			name:                "Add ip to empty exclude list",
+			podIP:               "10.0.0.1",
+			getSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{}`),
+			putSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{}`),
+			expectedExcludedIPs: "10.0.0.1",
+		},
+		{
+			name:                "Add ip to non-empty exclude list",
+			podIP:               "10.0.0.1",
+			getSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{"persistent":{"cluster":{"routing":{"allocation":{"exclude":{"_ip":"10.0.0.2,10.0.0.3"}}}}}}`),
+			putSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{}`),
+			expectedExcludedIPs: "10.0.0.1,10.0.0.2,10.0.0.3",
+		},
+		{
+			name:                "Pod IP already in exclude list",
+			podIP:               "10.0.0.1",
+			getSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{"persistent":{"cluster":{"routing":{"allocation":{"exclude":{"_ip":"10.0.0.1,10.0.0.2,10.0.0.3"}}}}}}`),
+			putSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{}`),
+			expectedExcludedIPs: "10.0.0.1,10.0.0.2,10.0.0.3",
+		},
+		{
+			name:                "Fetch(GET) cluster settings error",
+			getSettingsResponse: httpmock.NewStringResponse(http.StatusInternalServerError, `{}`),
+			expectedErr:         fmt.Errorf("code status 500 - {}"),
+		},
+		{
+			name:                "Update(PUT) cluster settings error",
+			getSettingsResponse: httpmock.NewStringResponse(http.StatusOK, `{}`),
+			putSettingsResponse: httpmock.NewStringResponse(http.StatusBadGateway, `{}`),
+			expectedErr:         fmt.Errorf("code status 502 - {}"),
+		},
+	}
+
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+	for _, tt := range tests {
+		httpmock.Reset()
+		httpmock.RegisterResponder("GET", "http://elasticsearch:9200/_cluster/settings",
+			httpmock.ResponderFromResponse(tt.getSettingsResponse))
+		httpmock.RegisterResponder("PUT", "http://elasticsearch:9200/_cluster/settings",
+			func(request *http.Request) (*http.Response, error) {
+				var esSettings ESSettings
+				body, err := io.ReadAll(request.Body)
+				if err != nil {
+					return nil, err
+				}
+				err = json.Unmarshal(body, &esSettings)
+				if err != nil {
+					return nil, err
+				}
+				assert.Equal(t, esSettings.GetPersistentExcludeIPs().ValueOrZero(), tt.expectedExcludedIPs)
+				return tt.putSettingsResponse, nil
+			})
+		esUrl, _ := url.Parse("http://elasticsearch:9200")
+		config := &DrainingConfig{
+			MaxRetries:      999,
+			MinimumWaitTime: 10 * time.Second,
+			MaximumWaitTime: 30 * time.Second,
+		}
+		client := &ESClient{
+			Endpoint:       esUrl,
+			DrainingConfig: config,
+		}
+		err := client.excludePodIP(tt.podIP)
+		if tt.expectedErr != nil {
+			assert.Error(t, err)
+			assert.EqualError(t, err, tt.expectedErr.Error())
+		} else {
+			assert.NoError(t, err)
+		}
 	}
 }
