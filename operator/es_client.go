@@ -310,11 +310,9 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 }
 
 // undoExcludePodIP Removes the pod's IP from Elasticsearch exclude._ip list
-func (c *ESClient) undoExcludePodIP(pod *v1.Pod) error {
+func (c *ESClient) undoExcludePodIP(podIP string) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-
-	podIP := pod.Status.PodIP
 
 	esSettings, err := c.getClusterSettings()
 	if err != nil {
@@ -436,7 +434,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 		Get(c.Endpoint.String() + "/_cat/shards?h=index,ip&format=json")
 	if err != nil {
 		// If we were not able to finish the drain operation with success, remove the pod IP from the ES excluded IP list
-		if undoErr := c.undoExcludePodIP(pod); undoErr != nil {
+		if undoErr := c.undoExcludePodIP(podIP); undoErr != nil {
 			return fmt.Errorf("failed to undo excluded pod IP: %v, original error: %v", undoErr, err)
 		}
 		return err
