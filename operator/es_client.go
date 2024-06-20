@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-resty/resty/v2"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/go-resty/resty/v2"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/es-operator/operator/null"
