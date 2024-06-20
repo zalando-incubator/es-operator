@@ -163,7 +163,7 @@ func TestDrainRetriesUntilMax(t *testing.T) {
 	require.EqualValues(t, 1, info["GET http://elasticsearch:9200/_cluster/health"])
 	require.EqualValues(t, 2, info["PUT http://elasticsearch:9200/_cluster/settings"])
 	require.EqualValues(t, 2, info["GET http://elasticsearch:9200/_cluster/settings"])
-	require.EqualValues(t, 5, info["GET http://elasticsearch:9200/_cat/shards"])
+	require.EqualValues(t, 6, info["GET http://elasticsearch:9200/_cat/shards"])
 }
 
 func TestDrainRetriesUntilSuccess(t *testing.T) {
