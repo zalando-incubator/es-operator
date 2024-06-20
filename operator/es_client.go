@@ -233,7 +233,7 @@ func (c *ESClient) Cleanup(ctx context.Context) error {
 
 // ensures cluster is in green state
 func (c *ESClient) ensureGreenClusterState() error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cluster/health?wait_for_status=green&timeout=60s")
 	if err != nil {
 		return err
@@ -255,7 +255,7 @@ func (c *ESClient) ensureGreenClusterState() error {
 // returns the response of the call to _cluster/settings
 func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	// get _cluster/settings for current exclude list
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cluster/settings")
 	if err != nil {
 		return nil, err
@@ -311,7 +311,7 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 
 func (c *ESClient) setExcludeIPs(ips string, originalESSettings *ESSettings) error {
 	originalESSettings.updateExcludeIps(ips)
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
@@ -330,7 +330,7 @@ func (esSettings *ESSettings) updateExcludeIps(ips string) {
 
 func (c *ESClient) updateAutoRebalance(value string, originalESSettings *ESSettings) error {
 	originalESSettings.updateRebalance(value)
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
@@ -354,7 +354,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 	// Counter to track the number of retries
 	retryCount := 0
 
-	_, err := resty.New().
+	_, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).
 		SetRetryCount(c.DrainingConfig.MaxRetries).
 		SetRetryWaitTime(c.DrainingConfig.MinimumWaitTime).
 		SetRetryMaxWaitTime(c.DrainingConfig.MaximumWaitTime).
@@ -412,7 +412,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 }
 
 func (c *ESClient) GetNodes() ([]ESNode, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/nodes?h=ip,dup&format=json")
 	if err != nil {
 		return nil, err
@@ -446,7 +446,7 @@ func (c *ESClient) GetNodes() ([]ESNode, error) {
 }
 
 func (c *ESClient) GetShards() ([]ESShard, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/shards?h=index,ip&format=json")
 
 	if err != nil {
@@ -465,7 +465,7 @@ func (c *ESClient) GetShards() ([]ESShard, error) {
 }
 
 func (c *ESClient) GetIndices() ([]ESIndex, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/indices?h=index,pri,rep&format=json")
 
 	if err != nil {
@@ -519,7 +519,7 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 
 	for _, index := range indices {
 		c.logger().Infof("Setting number_of_replicas for index '%s' to %d.", index.Index, index.Replicas)
-		resp, err := resty.New().R().
+		resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 			SetHeader("Content-Type", "application/json").
 			SetBody([]byte(
 				fmt.Sprintf(
@@ -545,7 +545,7 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 }
 
 func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int) error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody([]byte(
 			fmt.Sprintf(
@@ -567,7 +567,7 @@ func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int
 }
 
 func (c *ESClient) DeleteIndex(indexName string) error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Delete(fmt.Sprintf("%s/%s", c.Endpoint.String(), indexName))
 	if err != nil {
 		return err
