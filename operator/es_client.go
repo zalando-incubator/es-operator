@@ -11,9 +11,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-resty/resty/v2"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/es-operator/operator/null"
-	"gopkg.in/resty.v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -233,7 +234,7 @@ func (c *ESClient) Cleanup(ctx context.Context) error {
 
 // ensures cluster is in green state
 func (c *ESClient) ensureGreenClusterState() error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cluster/health?wait_for_status=green&timeout=60s")
 	if err != nil {
 		return err
@@ -255,7 +256,7 @@ func (c *ESClient) ensureGreenClusterState() error {
 // returns the response of the call to _cluster/settings
 func (c *ESClient) getClusterSettings() (*ESSettings, error) {
 	// get _cluster/settings for current exclude list
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cluster/settings")
 	if err != nil {
 		return nil, err
@@ -311,7 +312,7 @@ func (c *ESClient) excludePodIP(pod *v1.Pod) error {
 
 func (c *ESClient) setExcludeIPs(ips string, originalESSettings *ESSettings) error {
 	originalESSettings.updateExcludeIps(ips)
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
@@ -330,7 +331,7 @@ func (esSettings *ESSettings) updateExcludeIps(ips string) {
 
 func (c *ESClient) updateAutoRebalance(value string, originalESSettings *ESSettings) error {
 	originalESSettings.updateRebalance(value)
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(originalESSettings).
 		Put(c.Endpoint.String() + "/_cluster/settings")
@@ -350,29 +351,37 @@ func (esSettings *ESSettings) updateRebalance(value string) {
 // repeatedly query shard allocations to ensure success of drain operation.
 func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 	podIP := pod.Status.PodIP
-	_, err := resty.New().
+
+	// Counter to track the number of retries
+	retryCount := 0
+
+	_, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).
 		SetRetryCount(c.DrainingConfig.MaxRetries).
 		SetRetryWaitTime(c.DrainingConfig.MinimumWaitTime).
 		SetRetryMaxWaitTime(c.DrainingConfig.MaximumWaitTime).
 		AddRetryCondition(
-			// It is expected to return (bool, error) pair. Resty will retry
-			// in case condition returns true or non nil error.
-			func(r *resty.Response) (bool, error) {
+			// It is expected to return bool. Resty will retry in case condition returns true.
+			func(r *resty.Response, err error) bool {
+				retryCount++
+				log.Debugf("Waiting for Elasticsearch node to remove all shards. Details: Namespace=%s, PodName=%s, PodIP=%s, RetryCount=%d.",
+					pod.Namespace, pod.Name, podIP, retryCount)
 				select {
 				case <-ctx.Done():
-					// Return false to not retry and return the context error directly.
-					return false, ctx.Err()
+					// Return false to not retry
+					return false
 				default:
+					if err != nil {
+						log.Warnf("Failed to retrieve shard information from Elasticsearch due to error: %v. Details: Namespace=%s, PodName=%s, PodIP=%s, RetryCount=%d, StatusCode=%d.",
+							err, pod.Namespace, pod.Name, podIP, retryCount, r.StatusCode())
+						return true
+					}
 					// Process response as normal if context is not done.
 					var shards []ESShard
-					body := r.Body()
-					c.logger().Debugf("Request to %s/_cat/shards?h=index,ip&format=json status code %d - %s  on %s/%s (%s)",
-						c.Endpoint.String(), r.StatusCode(), string(body[:]), pod.Namespace, pod.Name, podIP)
-					err := json.Unmarshal(body, &shards)
+					err = json.Unmarshal(r.Body(), &shards)
 					if err != nil {
-						c.logger().Debugf("Error unmarshalling ES shards on %s/%s (%s) - %v",
-							pod.Namespace, pod.Name, podIP, err)
-						return true, err
+						log.Warnf("Failed to decode the response due to error: %v. Details: Namespace=%s, PodName=%s, PodIP=%s, RetryCount=%d.",
+							err, pod.Namespace, pod.Name, podIP, retryCount)
+						return true
 					}
 					// shardIP := make(map[string]bool)
 					remainingShards := 0
@@ -387,12 +396,12 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 					if remainingShards > 0 {
 						err = c.excludePodIP(pod)
 						if err != nil {
-							c.logger().Debugf("Error with excluding pod ip on %s/%s (%s) - %v",
-								pod.Namespace, pod.Name, podIP, err)
-							return true, err
+							log.Warnf("Failed to exclude IP in elastic search due to error: %v. Details: Namespace=%s, PodName=%s, PodIP=%s, RetryCount=%d.",
+								err, pod.Namespace, pod.Name, podIP, retryCount)
+							return true
 						}
 					}
-					return remainingShards > 0, nil
+					return remainingShards > 0
 				}
 			},
 		).R().
@@ -404,7 +413,7 @@ func (c *ESClient) waitForEmptyEsNode(ctx context.Context, pod *v1.Pod) error {
 }
 
 func (c *ESClient) GetNodes() ([]ESNode, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/nodes?h=ip,dup&format=json")
 	if err != nil {
 		return nil, err
@@ -438,7 +447,7 @@ func (c *ESClient) GetNodes() ([]ESNode, error) {
 }
 
 func (c *ESClient) GetShards() ([]ESShard, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/shards?h=index,ip&format=json")
 
 	if err != nil {
@@ -457,7 +466,7 @@ func (c *ESClient) GetShards() ([]ESShard, error) {
 }
 
 func (c *ESClient) GetIndices() ([]ESIndex, error) {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Get(c.Endpoint.String() + "/_cat/indices?h=index,pri,rep&format=json")
 
 	if err != nil {
@@ -511,7 +520,7 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 
 	for _, index := range indices {
 		c.logger().Infof("Setting number_of_replicas for index '%s' to %d.", index.Index, index.Replicas)
-		resp, err := resty.New().R().
+		resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 			SetHeader("Content-Type", "application/json").
 			SetBody([]byte(
 				fmt.Sprintf(
@@ -537,7 +546,7 @@ func (c *ESClient) UpdateIndexSettings(indices []ESIndex) error {
 }
 
 func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int) error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		SetHeader("Content-Type", "application/json").
 		SetBody([]byte(
 			fmt.Sprintf(
@@ -559,7 +568,7 @@ func (c *ESClient) CreateIndex(indexName, groupName string, shards, replicas int
 }
 
 func (c *ESClient) DeleteIndex(indexName string) error {
-	resp, err := resty.New().R().
+	resp, err := resty.NewWithClient(&http.Client{Transport: http.DefaultTransport}).R().
 		Delete(fmt.Sprintf("%s/%s", c.Endpoint.String(), indexName))
 	if err != nil {
 		return err
