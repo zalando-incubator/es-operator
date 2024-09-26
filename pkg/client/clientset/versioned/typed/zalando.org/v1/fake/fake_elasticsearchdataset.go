@@ -41,22 +41,24 @@ var elasticsearchdatasetsKind = v1.SchemeGroupVersion.WithKind("ElasticsearchDat
 
 // Get takes name of the elasticsearchDataSet, and returns the corresponding elasticsearchDataSet object, and an error if there is any.
 func (c *FakeElasticsearchDataSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.ElasticsearchDataSet, err error) {
+	emptyResult := &v1.ElasticsearchDataSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(elasticsearchdatasetsResource, c.ns, name), &v1.ElasticsearchDataSet{})
+		Invokes(testing.NewGetActionWithOptions(elasticsearchdatasetsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.ElasticsearchDataSet), err
 }
 
 // List takes label and field selectors, and returns the list of ElasticsearchDataSets that match those selectors.
 func (c *FakeElasticsearchDataSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.ElasticsearchDataSetList, err error) {
+	emptyResult := &v1.ElasticsearchDataSetList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(elasticsearchdatasetsResource, elasticsearchdatasetsKind, c.ns, opts), &v1.ElasticsearchDataSetList{})
+		Invokes(testing.NewListActionWithOptions(elasticsearchdatasetsResource, elasticsearchdatasetsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeElasticsearchDataSets) List(ctx context.Context, opts metav1.ListOp
 // Watch returns a watch.Interface that watches the requested elasticsearchDataSets.
 func (c *FakeElasticsearchDataSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(elasticsearchdatasetsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(elasticsearchdatasetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a elasticsearchDataSet and creates it.  Returns the server's representation of the elasticsearchDataSet, and an error, if there is any.
 func (c *FakeElasticsearchDataSets) Create(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.CreateOptions) (result *v1.ElasticsearchDataSet, err error) {
+	emptyResult := &v1.ElasticsearchDataSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet), &v1.ElasticsearchDataSet{})
+		Invokes(testing.NewCreateActionWithOptions(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.ElasticsearchDataSet), err
 }
 
 // Update takes the representation of a elasticsearchDataSet and updates it. Returns the server's representation of the elasticsearchDataSet, and an error, if there is any.
 func (c *FakeElasticsearchDataSets) Update(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.UpdateOptions) (result *v1.ElasticsearchDataSet, err error) {
+	emptyResult := &v1.ElasticsearchDataSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet), &v1.ElasticsearchDataSet{})
+		Invokes(testing.NewUpdateActionWithOptions(elasticsearchdatasetsResource, c.ns, elasticsearchDataSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.ElasticsearchDataSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeElasticsearchDataSets) UpdateStatus(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.UpdateOptions) (*v1.ElasticsearchDataSet, error) {
+func (c *FakeElasticsearchDataSets) UpdateStatus(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.UpdateOptions) (result *v1.ElasticsearchDataSet, err error) {
+	emptyResult := &v1.ElasticsearchDataSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(elasticsearchdatasetsResource, "status", c.ns, elasticsearchDataSet), &v1.ElasticsearchDataSet{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(elasticsearchdatasetsResource, "status", c.ns, elasticsearchDataSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.ElasticsearchDataSet), err
 }
@@ -123,7 +128,7 @@ func (c *FakeElasticsearchDataSets) Delete(ctx context.Context, name string, opt
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeElasticsearchDataSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(elasticsearchdatasetsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(elasticsearchdatasetsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.ElasticsearchDataSetList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeElasticsearchDataSets) DeleteCollection(ctx context.Context, opts m
 
 // Patch applies the patch and returns the patched elasticsearchDataSet.
 func (c *FakeElasticsearchDataSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ElasticsearchDataSet, err error) {
+	emptyResult := &v1.ElasticsearchDataSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(elasticsearchdatasetsResource, c.ns, name, pt, data, subresources...), &v1.ElasticsearchDataSet{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(elasticsearchdatasetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.ElasticsearchDataSet), err
 }
