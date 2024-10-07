@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type ElasticsearchDataSetLister interface {
 
 // elasticsearchDataSetLister implements the ElasticsearchDataSetLister interface.
 type elasticsearchDataSetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.ElasticsearchDataSet]
 }
 
 // NewElasticsearchDataSetLister returns a new ElasticsearchDataSetLister.
 func NewElasticsearchDataSetLister(indexer cache.Indexer) ElasticsearchDataSetLister {
-	return &elasticsearchDataSetLister{indexer: indexer}
-}
-
-// List lists all ElasticsearchDataSets in the indexer.
-func (s *elasticsearchDataSetLister) List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ElasticsearchDataSet))
-	})
-	return ret, err
+	return &elasticsearchDataSetLister{listers.New[*v1.ElasticsearchDataSet](indexer, v1.Resource("elasticsearchdataset"))}
 }
 
 // ElasticsearchDataSets returns an object that can list and get ElasticsearchDataSets.
 func (s *elasticsearchDataSetLister) ElasticsearchDataSets(namespace string) ElasticsearchDataSetNamespaceLister {
-	return elasticsearchDataSetNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return elasticsearchDataSetNamespaceLister{listers.NewNamespaced[*v1.ElasticsearchDataSet](s.ResourceIndexer, namespace)}
 }
 
 // ElasticsearchDataSetNamespaceLister helps list and get ElasticsearchDataSets.
@@ -74,26 +66,5 @@ type ElasticsearchDataSetNamespaceLister interface {
 // elasticsearchDataSetNamespaceLister implements the ElasticsearchDataSetNamespaceLister
 // interface.
 type elasticsearchDataSetNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ElasticsearchDataSets in the indexer for a given namespace.
-func (s elasticsearchDataSetNamespaceLister) List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ElasticsearchDataSet))
-	})
-	return ret, err
-}
-
-// Get retrieves the ElasticsearchDataSet from the indexer for a given namespace and name.
-func (s elasticsearchDataSetNamespaceLister) Get(name string) (*v1.ElasticsearchDataSet, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("elasticsearchdataset"), name)
-	}
-	return obj.(*v1.ElasticsearchDataSet), nil
+	listers.ResourceIndexer[*v1.ElasticsearchDataSet]
 }
