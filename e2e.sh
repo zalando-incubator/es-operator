@@ -2,7 +2,7 @@
 
 # Simple script for running the e2e test from your local development machine
 # against "some" cluster.
-# You need to run `kubectl proxy` in a different terminat before running the
+# You need to run `kubectl proxy` in a different terminal before running the
 # script.
 
 NAMESPACE="${NAMESPACE:-"es-operator-e2e-$(date +%s)"}"
