@@ -382,10 +382,8 @@ func shardToNodeRatio(shards, nodes int32) float64 {
 }
 
 func calculateNodesWithSameShardToNodeRatio(currentDesiredNodeReplicas, currentTotalShards, newTotalShards int32) int32 {
-	currentShardToNodeRatio := shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas)
-	if currentShardToNodeRatio <= 1 {
-		return currentDesiredNodeReplicas
-	}
+	// reconcile shardToNodeRatio to not become below 1
+	currentShardToNodeRatio := math.Max(shardToNodeRatio(currentTotalShards, currentDesiredNodeReplicas), 1)
 	return int32(math.Ceil(float64(newTotalShards) / float64(currentShardToNodeRatio)))
 }
 

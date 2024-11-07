@@ -274,10 +274,12 @@ func waitForSTSCondition(t *testing.T, stsName string, conditions ...func(sts *a
 
 func createEDS(name string, spec zv1.ElasticsearchDataSetSpec) error {
 	myspec := spec.DeepCopy()
-	myspec.Template.Spec.Containers[0].Env = append(myspec.Template.Spec.Containers[0].Env, v1.EnvVar{
-		Name:  "node.attr.group",
-		Value: name,
-	})
+	for i, env := range myspec.Template.Spec.Containers[0].Env {
+		if env.Name == "node.attr.group" {
+			myspec.Template.Spec.Containers[0].Env[i].Value = name
+			break
+		}
+	}
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
