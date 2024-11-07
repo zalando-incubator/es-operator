@@ -304,6 +304,31 @@ func TestScaleDownByRemovingIndexReplica(t *testing.T) {
 	require.Equal(t, DOWN, actual.ScalingDirection, actual.Description)
 }
 
+func TestScaleDownByRemovingIndexReplicaWhenHavingOneShardPerNodeBeforeScaleDown(t *testing.T) {
+	eds := edsTestFixture(30)
+	eds.Spec.Scaling.MinReplicas = 5
+	eds.Spec.Scaling.MaxReplicas = 30
+	eds.Spec.Scaling.MinShardsPerNode = 1
+	eds.Spec.Scaling.MaxShardsPerNode = 6
+	eds.Spec.Scaling.MaxIndexReplicas = 4
+	eds.Spec.Scaling.MinIndexReplicas = 2
+
+	esNodes := make([]ESNode, 0)
+
+	// scale down by removing an index replica
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 4, Primaries: 6, Index: "ad1"},
+	}
+	scalingHint := DOWN
+
+	as := systemUnderTest(eds, nil, nil)
+
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+	require.Equal(t, int32(24), *actual.NodeReplicas, actual.Description)
+	require.Equal(t, int32(3), actual.IndexReplicas[0].Replicas, actual.Description)
+	require.Equal(t, DOWN, actual.ScalingDirection, actual.Description)
+}
+
 func TestAtMaxIndexReplicas(t *testing.T) {
 	eds := edsTestFixture(4)
 	esNodes := make([]ESNode, 0)
@@ -354,6 +379,7 @@ func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
 		"ad1": {Replicas: 1, Primaries: 5, Index: "ad1"},
 	}
 	// calculated ShardToNode ratio is 10/11 ~ 0.9
+	// this should get reconciled to ShardToNode ratio of 1.
 	eds.Spec.Scaling.MinShardsPerNode = 1
 	// scaling independent of desired scaling direction
 	scalingHint := UP
@@ -361,7 +387,8 @@ func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
 	as := systemUnderTest(eds, nil, nil)
 
 	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
-	require.Equal(t, int32(11), *actual.NodeReplicas, actual.Description)
+	require.Contains(t, actual.IndexReplicas, ESIndex{Index: "ad1", Primaries: 5, Replicas: 2})
+	require.Equal(t, int32(15), *actual.NodeReplicas, actual.Description)
 	require.Equal(t, 1, len(actual.IndexReplicas), actual.Description)
 	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
@@ -610,8 +637,8 @@ func TestCalculateDecreaseNodes(t *testing.T) {
 }
 
 func TestCalculateNodesWithSameShardToNodeRatio(t *testing.T) {
-	require.Equal(t, 16, int(calculateNodesWithSameShardToNodeRatio(16, 4, 4)))
-	require.Equal(t, 16, int(calculateNodesWithSameShardToNodeRatio(16, 4, 6)))
+	require.Equal(t, 4, int(calculateNodesWithSameShardToNodeRatio(16, 4, 4)))
+	require.Equal(t, 6, int(calculateNodesWithSameShardToNodeRatio(16, 4, 6)))
 	require.Equal(t, 12, int(calculateNodesWithSameShardToNodeRatio(16, 32, 24)))
 	require.Equal(t, 17, int(calculateNodesWithSameShardToNodeRatio(17, 32, 32)))
 }
