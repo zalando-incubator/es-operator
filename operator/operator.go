@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kube_record "k8s.io/client-go/tools/record"
 )
@@ -96,6 +97,8 @@ type StatefulResource interface {
 // Operator is a generic operator that can manage Pods filtered by a selector.
 type Operator struct {
 	kube                  *clientset.Clientset
+	podInformer           informersv1.PodInformer
+	nodeInformer          informersv1.NodeInformer
 	priorityNodeSelectors labels.Set
 	interval              time.Duration
 	logger                *log.Entry
@@ -307,18 +310,14 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg
 		return sr.OnStableReplicasHook(ctx)
 	}
 
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(
-			sr.LabelSelector(),
-		).AsSelector().String(),
-	}
+	labelSelector := labels.Set(sr.LabelSelector()).AsSelector()
 
-	pods, err := o.kube.CoreV1().Pods(sr.Namespace()).List(ctx, opts)
+	pods, err := o.podInformer.Lister().Pods(sr.Namespace()).List(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to list pods of StatefulSet: %v", err)
 	}
 
-	pod, err := o.getPodToUpdate(ctx, pods.Items, sts, sr)
+	pod, err := o.getPodToUpdate(ctx, pods, sts, sr)
 	if err != nil {
 		return fmt.Errorf("failed to get Pod to update: %v", err)
 	}
@@ -439,12 +438,10 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 		replicas--
 	}
 
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(sts.Spec.Selector.MatchLabels).String(),
-	}
+	labelSelector := labels.Set(sts.Spec.Selector.MatchLabels).AsSelector()
 
 	// get all Pods of the StatefulSet
-	pods, err := o.kube.CoreV1().Pods(sts.Namespace).List(ctx, opts)
+	pods, err := o.podInformer.Lister().Pods(sts.Namespace).List(labelSelector)
 	if err != nil {
 		return err
 	}
@@ -453,14 +450,14 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	// We use this property to sort Pods by the lowest ordinal number and
 	// drain those that would be scaled down by Kubernetes when reducing
 	// the replica count on the StatefulSet.
-	pods.Items, err = sortStatefulSetPods(pods.Items)
+	pods, err = sortStatefulSetPods(pods)
 	if err != nil {
 		return err
 	}
 
-	if len(pods.Items) > replicas {
-		log.Infof("Starting pod draining from %d to %d pods", len(pods.Items), replicas)
-		for _, pod := range pods.Items[replicas:] {
+	if len(pods) > replicas {
+		log.Infof("Starting pod draining from %d to %d pods", len(pods), replicas)
+		for _, pod := range pods[replicas:] {
 			// first, check if we need to opt-out of the loop because the EDS changed.
 			newSR, err := srg.Get(ctx)
 			if err != nil {
@@ -485,7 +482,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			}
 
 			log.Infof("Draining Pod %s/%s for scaledown", pod.Namespace, pod.Name)
-			err = newSR.Drain(ctx, &pod)
+			err = newSR.Drain(ctx, pod)
 			if err != nil {
 				return fmt.Errorf("failed to drain pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			}
@@ -520,10 +517,10 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 
 // sortStatefulSetPods sorts pods based on their ordinal numbers which is the
 // last part of the pod name.
-func sortStatefulSetPods(pods []v1.Pod) ([]v1.Pod, error) {
+func sortStatefulSetPods(pods []*v1.Pod) ([]*v1.Pod, error) {
 	type ordinalPod struct {
 		Number int
-		Pod    v1.Pod
+		Pod    *v1.Pod
 	}
 
 	ordinalNumbers := make([]ordinalPod, len(pods))
@@ -540,7 +537,7 @@ func sortStatefulSetPods(pods []v1.Pod) ([]v1.Pod, error) {
 		return ordinalNumbers[i].Number < ordinalNumbers[j].Number
 	})
 
-	sortedPods := make([]v1.Pod, len(pods))
+	sortedPods := make([]*v1.Pod, len(pods))
 	for i, ordinal := range ordinalNumbers {
 		sortedPods[i] = ordinal.Pod
 	}
@@ -550,7 +547,7 @@ func sortStatefulSetPods(pods []v1.Pod) ([]v1.Pod, error) {
 
 // getPodToUpdate gets a single Pod to update based on priority.
 // if no update is needed it returns nil.
-func (o *Operator) getPodToUpdate(ctx context.Context, pods []v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource) (*v1.Pod, error) {
+func (o *Operator) getPodToUpdate(ctx context.Context, pods []*v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource) (*v1.Pod, error) {
 	// return early if there are no Pods to manage
 	if len(pods) == 0 {
 		return nil, nil
@@ -577,16 +574,16 @@ func (o *Operator) getPodToUpdate(ctx context.Context, pods []v1.Pod, sts *appsv
 
 // getNodes gets all nodes matching the priority node selector and all nodes
 // that are marked unschedulable.
-func (o *Operator) getNodes(ctx context.Context) (map[string]v1.Node, map[string]v1.Node, error) {
-	opts := metav1.ListOptions{}
-	nodes, err := o.kube.CoreV1().Nodes().List(ctx, opts)
+func (o *Operator) getNodes(_ context.Context) (map[string]v1.Node, map[string]v1.Node, error) {
+	nodes, err := o.nodeInformer.Lister().List(labels.Everything())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	priorityNodesMap := make(map[string]v1.Node, len(nodes.Items))
-	unschedulableNodesMap := make(map[string]v1.Node, len(nodes.Items))
-	for _, node := range nodes.Items {
+	priorityNodesMap := make(map[string]v1.Node, len(nodes))
+	unschedulableNodesMap := make(map[string]v1.Node, len(nodes))
+	for _, node := range nodes {
+		node := *node
 		if len(node.Labels) > 0 && isSubset(o.priorityNodeSelectors, labels.Set(node.Labels)) {
 			priorityNodesMap[node.Name] = node
 		}
@@ -726,7 +723,7 @@ func priorityNames(priority int) []string {
 // 2. Pods NOT on a priority node get high priority.
 // 3. Pods not up to date with StatefulSet revision get high priority.
 // 4. Pods part of a StatefulSet where desired replicas != actual replicas get medium priority.
-func prioritizePodsForUpdate(pods []v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource, priorityNodes, unschedulableNodes map[string]v1.Node) ([]v1.Pod, error) {
+func prioritizePodsForUpdate(pods []*v1.Pod, sts *appsv1.StatefulSet, sr StatefulResource, priorityNodes, unschedulableNodes map[string]v1.Node) ([]v1.Pod, error) {
 	priorities := make([]*updatePriority, 0, len(pods))
 	for _, pod := range pods {
 		ordinal := strings.TrimPrefix(pod.Name, pod.GenerateName)
@@ -736,7 +733,7 @@ func prioritizePodsForUpdate(pods []v1.Pod, sts *appsv1.StatefulSet, sr Stateful
 		}
 
 		prio := &updatePriority{
-			Pod:    pod,
+			Pod:    *pod.DeepCopy(),
 			Number: number,
 		}
 
