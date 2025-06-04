@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ElasticsearchDataSetLister helps list ElasticsearchDataSets.
@@ -30,7 +30,7 @@ import (
 type ElasticsearchDataSetLister interface {
 	// List lists all ElasticsearchDataSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.ElasticsearchDataSet, err error)
 	// ElasticsearchDataSets returns an object that can list and get ElasticsearchDataSets.
 	ElasticsearchDataSets(namespace string) ElasticsearchDataSetNamespaceLister
 	ElasticsearchDataSetListerExpansion
@@ -38,17 +38,17 @@ type ElasticsearchDataSetLister interface {
 
 // elasticsearchDataSetLister implements the ElasticsearchDataSetLister interface.
 type elasticsearchDataSetLister struct {
-	listers.ResourceIndexer[*v1.ElasticsearchDataSet]
+	listers.ResourceIndexer[*zalandoorgv1.ElasticsearchDataSet]
 }
 
 // NewElasticsearchDataSetLister returns a new ElasticsearchDataSetLister.
 func NewElasticsearchDataSetLister(indexer cache.Indexer) ElasticsearchDataSetLister {
-	return &elasticsearchDataSetLister{listers.New[*v1.ElasticsearchDataSet](indexer, v1.Resource("elasticsearchdataset"))}
+	return &elasticsearchDataSetLister{listers.New[*zalandoorgv1.ElasticsearchDataSet](indexer, zalandoorgv1.Resource("elasticsearchdataset"))}
 }
 
 // ElasticsearchDataSets returns an object that can list and get ElasticsearchDataSets.
 func (s *elasticsearchDataSetLister) ElasticsearchDataSets(namespace string) ElasticsearchDataSetNamespaceLister {
-	return elasticsearchDataSetNamespaceLister{listers.NewNamespaced[*v1.ElasticsearchDataSet](s.ResourceIndexer, namespace)}
+	return elasticsearchDataSetNamespaceLister{listers.NewNamespaced[*zalandoorgv1.ElasticsearchDataSet](s.ResourceIndexer, namespace)}
 }
 
 // ElasticsearchDataSetNamespaceLister helps list and get ElasticsearchDataSets.
@@ -56,15 +56,15 @@ func (s *elasticsearchDataSetLister) ElasticsearchDataSets(namespace string) Ela
 type ElasticsearchDataSetNamespaceLister interface {
 	// List lists all ElasticsearchDataSets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ElasticsearchDataSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.ElasticsearchDataSet, err error)
 	// Get retrieves the ElasticsearchDataSet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ElasticsearchDataSet, error)
+	Get(name string) (*zalandoorgv1.ElasticsearchDataSet, error)
 	ElasticsearchDataSetNamespaceListerExpansion
 }
 
 // elasticsearchDataSetNamespaceLister implements the ElasticsearchDataSetNamespaceLister
 // interface.
 type elasticsearchDataSetNamespaceLister struct {
-	listers.ResourceIndexer[*v1.ElasticsearchDataSet]
+	listers.ResourceIndexer[*zalandoorgv1.ElasticsearchDataSet]
 }

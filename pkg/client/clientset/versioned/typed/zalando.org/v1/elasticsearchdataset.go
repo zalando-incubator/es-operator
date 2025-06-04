@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	scheme "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type ElasticsearchDataSetsGetter interface {
 
 // ElasticsearchDataSetInterface has methods to work with ElasticsearchDataSet resources.
 type ElasticsearchDataSetInterface interface {
-	Create(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.CreateOptions) (*v1.ElasticsearchDataSet, error)
-	Update(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.UpdateOptions) (*v1.ElasticsearchDataSet, error)
+	Create(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts metav1.CreateOptions) (*zalandoorgv1.ElasticsearchDataSet, error)
+	Update(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts metav1.UpdateOptions) (*zalandoorgv1.ElasticsearchDataSet, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, elasticsearchDataSet *v1.ElasticsearchDataSet, opts metav1.UpdateOptions) (*v1.ElasticsearchDataSet, error)
+	UpdateStatus(ctx context.Context, elasticsearchDataSet *zalandoorgv1.ElasticsearchDataSet, opts metav1.UpdateOptions) (*zalandoorgv1.ElasticsearchDataSet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ElasticsearchDataSet, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ElasticsearchDataSetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*zalandoorgv1.ElasticsearchDataSet, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*zalandoorgv1.ElasticsearchDataSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ElasticsearchDataSet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *zalandoorgv1.ElasticsearchDataSet, err error)
 	ElasticsearchDataSetExpansion
 }
 
 // elasticsearchDataSets implements ElasticsearchDataSetInterface
 type elasticsearchDataSets struct {
-	*gentype.ClientWithList[*v1.ElasticsearchDataSet, *v1.ElasticsearchDataSetList]
+	*gentype.ClientWithList[*zalandoorgv1.ElasticsearchDataSet, *zalandoorgv1.ElasticsearchDataSetList]
 }
 
 // newElasticsearchDataSets returns a ElasticsearchDataSets
 func newElasticsearchDataSets(c *ZalandoV1Client, namespace string) *elasticsearchDataSets {
 	return &elasticsearchDataSets{
-		gentype.NewClientWithList[*v1.ElasticsearchDataSet, *v1.ElasticsearchDataSetList](
+		gentype.NewClientWithList[*zalandoorgv1.ElasticsearchDataSet, *zalandoorgv1.ElasticsearchDataSetList](
 			"elasticsearchdatasets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.ElasticsearchDataSet { return &v1.ElasticsearchDataSet{} },
-			func() *v1.ElasticsearchDataSetList { return &v1.ElasticsearchDataSetList{} }),
+			func() *zalandoorgv1.ElasticsearchDataSet { return &zalandoorgv1.ElasticsearchDataSet{} },
+			func() *zalandoorgv1.ElasticsearchDataSetList { return &zalandoorgv1.ElasticsearchDataSetList{} },
+		),
 	}
 }

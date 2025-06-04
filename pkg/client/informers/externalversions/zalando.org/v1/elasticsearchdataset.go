@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	apiszalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	versioned "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/es-operator/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/es-operator/pkg/client/listers/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/client/listers/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ElasticsearchDataSets.
 type ElasticsearchDataSetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ElasticsearchDataSetLister
+	Lister() zalandoorgv1.ElasticsearchDataSetLister
 }
 
 type elasticsearchDataSetInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredElasticsearchDataSetInformer(client versioned.Interface, namespa
 				return client.ZalandoV1().ElasticsearchDataSets(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&zalandoorgv1.ElasticsearchDataSet{},
+		&apiszalandoorgv1.ElasticsearchDataSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *elasticsearchDataSetInformer) defaultInformer(client versioned.Interfac
 }
 
 func (f *elasticsearchDataSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&zalandoorgv1.ElasticsearchDataSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiszalandoorgv1.ElasticsearchDataSet{}, f.defaultInformer)
 }
 
-func (f *elasticsearchDataSetInformer) Lister() v1.ElasticsearchDataSetLister {
-	return v1.NewElasticsearchDataSetLister(f.Informer().GetIndexer())
+func (f *elasticsearchDataSetInformer) Lister() zalandoorgv1.ElasticsearchDataSetLister {
+	return zalandoorgv1.NewElasticsearchDataSetLister(f.Informer().GetIndexer())
 }
