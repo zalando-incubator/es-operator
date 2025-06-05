@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	apiszalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	versioned "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/es-operator/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/es-operator/pkg/client/listers/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/client/listers/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ElasticsearchMetricSets.
 type ElasticsearchMetricSetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ElasticsearchMetricSetLister
+	Lister() zalandoorgv1.ElasticsearchMetricSetLister
 }
 
 type elasticsearchMetricSetInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredElasticsearchMetricSetInformer(client versioned.Interface, names
 				return client.ZalandoV1().ElasticsearchMetricSets(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&zalandoorgv1.ElasticsearchMetricSet{},
+		&apiszalandoorgv1.ElasticsearchMetricSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *elasticsearchMetricSetInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *elasticsearchMetricSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&zalandoorgv1.ElasticsearchMetricSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiszalandoorgv1.ElasticsearchMetricSet{}, f.defaultInformer)
 }
 
-func (f *elasticsearchMetricSetInformer) Lister() v1.ElasticsearchMetricSetLister {
-	return v1.NewElasticsearchMetricSetLister(f.Informer().GetIndexer())
+func (f *elasticsearchMetricSetInformer) Lister() zalandoorgv1.ElasticsearchMetricSetLister {
+	return zalandoorgv1.NewElasticsearchMetricSetLister(f.Informer().GetIndexer())
 }

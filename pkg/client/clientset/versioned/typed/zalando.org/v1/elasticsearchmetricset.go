@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	scheme "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,31 +37,32 @@ type ElasticsearchMetricSetsGetter interface {
 
 // ElasticsearchMetricSetInterface has methods to work with ElasticsearchMetricSet resources.
 type ElasticsearchMetricSetInterface interface {
-	Create(ctx context.Context, elasticsearchMetricSet *v1.ElasticsearchMetricSet, opts metav1.CreateOptions) (*v1.ElasticsearchMetricSet, error)
-	Update(ctx context.Context, elasticsearchMetricSet *v1.ElasticsearchMetricSet, opts metav1.UpdateOptions) (*v1.ElasticsearchMetricSet, error)
+	Create(ctx context.Context, elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet, opts metav1.CreateOptions) (*zalandoorgv1.ElasticsearchMetricSet, error)
+	Update(ctx context.Context, elasticsearchMetricSet *zalandoorgv1.ElasticsearchMetricSet, opts metav1.UpdateOptions) (*zalandoorgv1.ElasticsearchMetricSet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ElasticsearchMetricSet, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ElasticsearchMetricSetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*zalandoorgv1.ElasticsearchMetricSet, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*zalandoorgv1.ElasticsearchMetricSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ElasticsearchMetricSet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *zalandoorgv1.ElasticsearchMetricSet, err error)
 	ElasticsearchMetricSetExpansion
 }
 
 // elasticsearchMetricSets implements ElasticsearchMetricSetInterface
 type elasticsearchMetricSets struct {
-	*gentype.ClientWithList[*v1.ElasticsearchMetricSet, *v1.ElasticsearchMetricSetList]
+	*gentype.ClientWithList[*zalandoorgv1.ElasticsearchMetricSet, *zalandoorgv1.ElasticsearchMetricSetList]
 }
 
 // newElasticsearchMetricSets returns a ElasticsearchMetricSets
 func newElasticsearchMetricSets(c *ZalandoV1Client, namespace string) *elasticsearchMetricSets {
 	return &elasticsearchMetricSets{
-		gentype.NewClientWithList[*v1.ElasticsearchMetricSet, *v1.ElasticsearchMetricSetList](
+		gentype.NewClientWithList[*zalandoorgv1.ElasticsearchMetricSet, *zalandoorgv1.ElasticsearchMetricSetList](
 			"elasticsearchmetricsets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.ElasticsearchMetricSet { return &v1.ElasticsearchMetricSet{} },
-			func() *v1.ElasticsearchMetricSetList { return &v1.ElasticsearchMetricSetList{} }),
+			func() *zalandoorgv1.ElasticsearchMetricSet { return &zalandoorgv1.ElasticsearchMetricSet{} },
+			func() *zalandoorgv1.ElasticsearchMetricSetList { return &zalandoorgv1.ElasticsearchMetricSetList{} },
+		),
 	}
 }

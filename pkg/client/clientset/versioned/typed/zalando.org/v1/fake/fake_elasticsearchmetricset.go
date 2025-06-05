@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,116 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/client/clientset/versioned/typed/zalando.org/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeElasticsearchMetricSets implements ElasticsearchMetricSetInterface
-type FakeElasticsearchMetricSets struct {
+// fakeElasticsearchMetricSets implements ElasticsearchMetricSetInterface
+type fakeElasticsearchMetricSets struct {
+	*gentype.FakeClientWithList[*v1.ElasticsearchMetricSet, *v1.ElasticsearchMetricSetList]
 	Fake *FakeZalandoV1
-	ns   string
 }
 
-var elasticsearchmetricsetsResource = v1.SchemeGroupVersion.WithResource("elasticsearchmetricsets")
-
-var elasticsearchmetricsetsKind = v1.SchemeGroupVersion.WithKind("ElasticsearchMetricSet")
-
-// Get takes name of the elasticsearchMetricSet, and returns the corresponding elasticsearchMetricSet object, and an error if there is any.
-func (c *FakeElasticsearchMetricSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.ElasticsearchMetricSet, err error) {
-	emptyResult := &v1.ElasticsearchMetricSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(elasticsearchmetricsetsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeElasticsearchMetricSets(fake *FakeZalandoV1, namespace string) zalandoorgv1.ElasticsearchMetricSetInterface {
+	return &fakeElasticsearchMetricSets{
+		gentype.NewFakeClientWithList[*v1.ElasticsearchMetricSet, *v1.ElasticsearchMetricSetList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("elasticsearchmetricsets"),
+			v1.SchemeGroupVersion.WithKind("ElasticsearchMetricSet"),
+			func() *v1.ElasticsearchMetricSet { return &v1.ElasticsearchMetricSet{} },
+			func() *v1.ElasticsearchMetricSetList { return &v1.ElasticsearchMetricSetList{} },
+			func(dst, src *v1.ElasticsearchMetricSetList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.ElasticsearchMetricSetList) []*v1.ElasticsearchMetricSet {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.ElasticsearchMetricSetList, items []*v1.ElasticsearchMetricSet) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.ElasticsearchMetricSet), err
-}
-
-// List takes label and field selectors, and returns the list of ElasticsearchMetricSets that match those selectors.
-func (c *FakeElasticsearchMetricSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.ElasticsearchMetricSetList, err error) {
-	emptyResult := &v1.ElasticsearchMetricSetList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(elasticsearchmetricsetsResource, elasticsearchmetricsetsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.ElasticsearchMetricSetList{ListMeta: obj.(*v1.ElasticsearchMetricSetList).ListMeta}
-	for _, item := range obj.(*v1.ElasticsearchMetricSetList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested elasticsearchMetricSets.
-func (c *FakeElasticsearchMetricSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(elasticsearchmetricsetsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a elasticsearchMetricSet and creates it.  Returns the server's representation of the elasticsearchMetricSet, and an error, if there is any.
-func (c *FakeElasticsearchMetricSets) Create(ctx context.Context, elasticsearchMetricSet *v1.ElasticsearchMetricSet, opts metav1.CreateOptions) (result *v1.ElasticsearchMetricSet, err error) {
-	emptyResult := &v1.ElasticsearchMetricSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(elasticsearchmetricsetsResource, c.ns, elasticsearchMetricSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.ElasticsearchMetricSet), err
-}
-
-// Update takes the representation of a elasticsearchMetricSet and updates it. Returns the server's representation of the elasticsearchMetricSet, and an error, if there is any.
-func (c *FakeElasticsearchMetricSets) Update(ctx context.Context, elasticsearchMetricSet *v1.ElasticsearchMetricSet, opts metav1.UpdateOptions) (result *v1.ElasticsearchMetricSet, err error) {
-	emptyResult := &v1.ElasticsearchMetricSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(elasticsearchmetricsetsResource, c.ns, elasticsearchMetricSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.ElasticsearchMetricSet), err
-}
-
-// Delete takes name of the elasticsearchMetricSet and deletes it. Returns an error if one occurs.
-func (c *FakeElasticsearchMetricSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(elasticsearchmetricsetsResource, c.ns, name, opts), &v1.ElasticsearchMetricSet{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeElasticsearchMetricSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(elasticsearchmetricsetsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.ElasticsearchMetricSetList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched elasticsearchMetricSet.
-func (c *FakeElasticsearchMetricSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ElasticsearchMetricSet, err error) {
-	emptyResult := &v1.ElasticsearchMetricSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(elasticsearchmetricsetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.ElasticsearchMetricSet), err
 }

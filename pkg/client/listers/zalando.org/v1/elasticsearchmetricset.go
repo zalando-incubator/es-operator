@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	zalandoorgv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ElasticsearchMetricSetLister helps list ElasticsearchMetricSets.
@@ -30,7 +30,7 @@ import (
 type ElasticsearchMetricSetLister interface {
 	// List lists all ElasticsearchMetricSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ElasticsearchMetricSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.ElasticsearchMetricSet, err error)
 	// ElasticsearchMetricSets returns an object that can list and get ElasticsearchMetricSets.
 	ElasticsearchMetricSets(namespace string) ElasticsearchMetricSetNamespaceLister
 	ElasticsearchMetricSetListerExpansion
@@ -38,17 +38,17 @@ type ElasticsearchMetricSetLister interface {
 
 // elasticsearchMetricSetLister implements the ElasticsearchMetricSetLister interface.
 type elasticsearchMetricSetLister struct {
-	listers.ResourceIndexer[*v1.ElasticsearchMetricSet]
+	listers.ResourceIndexer[*zalandoorgv1.ElasticsearchMetricSet]
 }
 
 // NewElasticsearchMetricSetLister returns a new ElasticsearchMetricSetLister.
 func NewElasticsearchMetricSetLister(indexer cache.Indexer) ElasticsearchMetricSetLister {
-	return &elasticsearchMetricSetLister{listers.New[*v1.ElasticsearchMetricSet](indexer, v1.Resource("elasticsearchmetricset"))}
+	return &elasticsearchMetricSetLister{listers.New[*zalandoorgv1.ElasticsearchMetricSet](indexer, zalandoorgv1.Resource("elasticsearchmetricset"))}
 }
 
 // ElasticsearchMetricSets returns an object that can list and get ElasticsearchMetricSets.
 func (s *elasticsearchMetricSetLister) ElasticsearchMetricSets(namespace string) ElasticsearchMetricSetNamespaceLister {
-	return elasticsearchMetricSetNamespaceLister{listers.NewNamespaced[*v1.ElasticsearchMetricSet](s.ResourceIndexer, namespace)}
+	return elasticsearchMetricSetNamespaceLister{listers.NewNamespaced[*zalandoorgv1.ElasticsearchMetricSet](s.ResourceIndexer, namespace)}
 }
 
 // ElasticsearchMetricSetNamespaceLister helps list and get ElasticsearchMetricSets.
@@ -56,15 +56,15 @@ func (s *elasticsearchMetricSetLister) ElasticsearchMetricSets(namespace string)
 type ElasticsearchMetricSetNamespaceLister interface {
 	// List lists all ElasticsearchMetricSets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ElasticsearchMetricSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.ElasticsearchMetricSet, err error)
 	// Get retrieves the ElasticsearchMetricSet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ElasticsearchMetricSet, error)
+	Get(name string) (*zalandoorgv1.ElasticsearchMetricSet, error)
 	ElasticsearchMetricSetNamespaceListerExpansion
 }
 
 // elasticsearchMetricSetNamespaceLister implements the ElasticsearchMetricSetNamespaceLister
 // interface.
 type elasticsearchMetricSetNamespaceLister struct {
-	listers.ResourceIndexer[*v1.ElasticsearchMetricSet]
+	listers.ResourceIndexer[*zalandoorgv1.ElasticsearchMetricSet]
 }
