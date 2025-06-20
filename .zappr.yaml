@@ -6,5 +6,5 @@ approvals:
       from:
         orgs:
           - "zalando"
-X-Zalando-Team: poirot
+X-Zalando-Team: pandora
 X-Zalando-Type: code
