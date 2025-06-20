@@ -887,8 +887,10 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 	return int32(math.Max(float64(currentReplicas), float64(scaling.MinReplicas)))
 }
 
-// collectResources collects all the ElasticsearchDataSet resources and there
-// corresponding StatefulSets if they exist.
+/*
+collectResources collects all the ElasticsearchDataSet resources and their corresponding StatefulSets, MetricSets, and Pods.
+This version uses pod labels to efficiently select only the pods belonging to each EDS.
+*/
 func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types.UID]*ESResource, error) {
 	resources := make(map[types.UID]*ESResource)
 
@@ -897,8 +899,7 @@ func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types
 		return nil, err
 	}
 
-	// create a map of ElasticsearchDataSet clusters to later map the matching
-	// StatefulSet.
+	// create a map of ElasticsearchDataSet clusters to later map the matching StatefulSet.
 	for _, eds := range edss.Items {
 		eds := eds
 		if !o.hasOwnership(&eds) {
@@ -930,21 +931,15 @@ func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types
 		}
 	}
 
-	// TODO: label filter
-	pods, err := o.podInformer.Lister().Pods(o.namespace).List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pod := range pods {
-		pod := *pod
-		for _, es := range resources {
-			es := es
-			// TODO: leaky abstraction
-			if v, ok := pod.Labels[esDataSetLabelKey]; ok && v == es.ElasticsearchDataSet.Name {
-				es.Pods = append(es.Pods, pod)
-				break
-			}
+	// Use label selectors to efficiently fetch pods for each EDS.
+	for _, es := range resources {
+		selector := labels.Set(map[string]string{esDataSetLabelKey: es.ElasticsearchDataSet.Name}).AsSelector()
+		pods, err := o.podInformer.Lister().Pods(o.namespace).List(selector)
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range pods {
+			es.Pods = append(es.Pods, *pod)
 		}
 	}
 
@@ -1040,9 +1035,7 @@ func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string)
 	}
 
 	for key, value := range labels {
-		if _, ok := template.ObjectMeta.Labels[key]; !ok {
-			template.ObjectMeta.Labels[key] = value
-		}
+		template.ObjectMeta.Labels[key] = value
 	}
 	return template
 }
