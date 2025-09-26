@@ -2,7 +2,7 @@
 
 BINARY        ?= es-operator
 VERSION       ?= $(shell git describe --tags --always --dirty)
-IMAGE         ?= registry-write.opensource.zalan.do/poirot/$(BINARY)
+IMAGE         ?= registry-write.opensource.zalan.do/pandora/$(BINARY)
 E2E_IMAGE     ?= $(IMAGE)-e2e
 TAG           ?= $(VERSION)
 SOURCES       = $(shell find . -name '*.go')
