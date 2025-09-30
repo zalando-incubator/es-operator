@@ -6,7 +6,7 @@
 # script.
 
 NAMESPACE="${NAMESPACE:-"es-operator-e2e-$(date +%s)"}"
-IMAGE="${IMAGE:-"registry.opensource.zalan.do/poirot/es-operator:latest"}"
+IMAGE="${IMAGE:-"registry.opensource.zalan.do/pandora/es-operator:latest"}"
 SERVICE_ENDPOINT_ES8="${SERVICE_ENDPOINT_ES8:-"http://127.0.0.1:8001/api/v1/namespaces/$NAMESPACE/services/es8-master:9200/proxy"}"
 SERVICE_ENDPOINT_ES7="${SERVICE_ENDPOINT_ES7:-"http://127.0.0.1:8001/api/v1/namespaces/$NAMESPACE/services/es7-master:9200/proxy"}"
 OPERATOR_ID="${OPERATOR_ID:-"e2e-tests"}"

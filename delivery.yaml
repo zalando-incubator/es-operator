@@ -19,10 +19,10 @@ pipeline:
   - desc: push
     cmd: |
       if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
-        IMAGE=registry-write.opensource.zalan.do/poirot/es-operator
+        IMAGE=registry-write.opensource.zalan.do/pandora/es-operator
         VERSION=$(git describe --tags --always --dirty)
       else
-        IMAGE=registry-write.opensource.zalan.do/poirot/es-operator-test
+        IMAGE=registry-write.opensource.zalan.do/pandora/es-operator-test
         VERSION=$CDP_BUILD_VERSION
       fi
       IMAGE=$IMAGE VERSION=$VERSION make build.push
@@ -42,7 +42,7 @@ pipeline:
       - name: DEPLOYMENT_PATH
         value: deploy/e2e
       - name: IMAGE
-        value: "registry.opensource.zalan.do/poirot/es-operator-test:#{CDP_BUILD_VERSION}"
+        value: "registry.opensource.zalan.do/pandora/es-operator-test:#{CDP_BUILD_VERSION}"
       - name: OPERATOR_ID
         value: "#{CDP_BUILD_VERSION}"
     end2end_tests:
@@ -53,7 +53,7 @@ pipeline:
         restartPolicy: Never
         containers:
           - name: e2e
-            image: "registry.opensource.zalan.do/poirot/es-operator-test-e2e:#{CDP_BUILD_VERSION}"
+            image: "registry.opensource.zalan.do/pandora/es-operator-test-e2e:#{CDP_BUILD_VERSION}"
             command: ["/e2e"]
             env:
               - name: "OPERATOR_ID"
