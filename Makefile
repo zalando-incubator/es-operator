@@ -1,4 +1,4 @@
-.PHONY: clean test lint build.local build.linux build.osx build.docker build.push
+.PHONY: clean test lint build.local build.linux build.osx build.docker.internal build.push.internal build.docker.ghcr build.push.ghcr build.multiarch
 
 BINARY        ?= es-operator
 VERSION       ?= $(shell git describe --tags --always --dirty)
@@ -63,10 +63,29 @@ build/linux/$(BINARY): $(GENERATED) $(SOURCES)
 build/osx/$(BINARY): $(GENERATED) $(SOURCES)
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/osx/$(BINARY) -ldflags "$(LDFLAGS)" .
 
-build.docker: build.linux build/linux/e2e
-	docker build --rm -t "$(E2E_IMAGE):$(TAG)" -f Dockerfile.e2e .
-	docker build --rm -t "$(IMAGE):$(TAG)" -f $(DOCKERFILE) .
+# Internal build targets (for delivery.yaml)
+build.docker.internal: build.multiarch
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE)-e2e:$(TAG)" -f Dockerfile.e2e .
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE):$(TAG)" -f Dockerfile.internal .
 
-build.push: build.docker
-	docker push "$(E2E_IMAGE):$(TAG)"
-	docker push "$(IMAGE):$(TAG)"
+build.push.internal: build.multiarch
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE)-e2e:$(TAG)" -f Dockerfile.e2e --push .
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE):$(TAG)" -f Dockerfile.internal --push .
+
+# Multiarch build targets (for binaries)
+build.multiarch: $(GENERATED) $(SOURCES)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/amd64/$(BINARY) -ldflags "$(LDFLAGS)" .
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/arm64/$(BINARY) -ldflags "$(LDFLAGS)" .
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/linux/amd64/e2e $(BUILD_FLAGS) ./cmd/e2e
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go test -c -o build/linux/arm64/e2e $(BUILD_FLAGS) ./cmd/e2e
+
+# GHCR build targets (public multiarch images)
+build.docker.ghcr: build.multiarch
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr .
+
+# Local build target for e2e testing (single arch with --load)
+build.docker.local: build.multiarch
+	docker buildx build --platform linux/amd64 -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr --load .
+
+build.push.ghcr: build.multiarch
+	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr --push .
