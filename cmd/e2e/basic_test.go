@@ -125,10 +125,10 @@ func TestEDSCreateBasic8(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEDSCreateBasic7(t *testing.T) {
+func TestEDSCreateBasic9(t *testing.T) {
 	t.Parallel()
-	edsName := "basic7"
-	edsSpec := testEDSCreate(t, edsName, "7.17.2", "es7-config")
+	edsName := "basic9"
+	edsSpec := testEDSCreate(t, edsName, "9.1.5", "es9-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)

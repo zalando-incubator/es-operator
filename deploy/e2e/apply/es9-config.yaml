@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: es7-config
+  name: es9-config
 data:
   elasticsearch.yml: |
-    cluster.name: es7-operator-e2e
+    cluster.name: es9-operator-e2e
     network.host: "0.0.0.0"
     bootstrap.memory_lock: false
-    discovery.seed_hosts: [es7-master]
-    cluster.initial_master_nodes: [es7-master-0]
+    discovery.seed_hosts: [es9-master]
+    cluster.initial_master_nodes: [es9-master-0]
     xpack.security.enabled: false
     xpack.security.transport.ssl.enabled: false
     xpack.security.http.ssl.enabled: false

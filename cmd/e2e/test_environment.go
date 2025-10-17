@@ -77,10 +77,10 @@ func setupESClient(defaultServiceEndpoint, version string) (*operator.ESClient, 
 	var envSuffix string
 	if len(version) > 0 {
 		switch version[0] {
-		case '7':
-			envSuffix = "_ES7"
 		case '8':
 			envSuffix = "_ES8"
+		case '9':
+			envSuffix = "_ES9"
 		}
 	}
 	serviceEndpoint := os.Getenv("ES_SERVICE_ENDPOINT" + envSuffix)

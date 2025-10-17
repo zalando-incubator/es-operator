@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: es7-master
+  name: es9-master
 spec:
   replicas: 1
-  serviceName: es7-master
+  serviceName: es9-master
   selector:
     matchLabels:
-      application: es7
+      application: es9
       role: master
   template:
     metadata:
       labels:
-        application: es7
+        application: es9
         role: master
     spec:
       securityContext:
@@ -22,19 +22,19 @@ spec:
       - name: elasticsearch
         resources:
           requests:
-            memory: 720Mi
+            memory: 1120Mi
             cpu: 100m
           limits:
-            memory: 720Mi
+            memory: 1120Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch:7.17.2"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:9.1.5"
         env:
         - name: "node.name"
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xmx360m -Xms360m"
+          value: "-Xmx560m -Xms560m"
         - name: node.roles
           value: "master,data"
         readinessProbe:
@@ -59,7 +59,7 @@ spec:
         emptyDir: {}
       - name: config
         configMap:
-          name: es7-config
+          name: es9-config
           items:
           - key: elasticsearch.yml
             path: elasticsearch.yml

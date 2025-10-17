@@ -32,7 +32,7 @@ while [ "$(kubectl -n "$namespace" get pod -l application=es-operator -o jsonpat
     sleep 5
 done
 # wait for es master pods to be ready
-for pod in es8-master-0 es7-master-0; do
+for pod in es8-master-0 es9-master-0; do
     while [ "$(kubectl -n "$namespace" get pod "$pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" != "True" ]; do
         echo "Waiting for ready '${pod}' pod"
         sleep 5
@@ -43,7 +43,7 @@ done
 OPERATOR_ID=es-operator-e2e \
 E2E_NAMESPACE=es-operator-e2e \
 ES_SERVICE_ENDPOINT_ES8="http://127.0.0.1:8001/api/v1/namespaces/es-operator-e2e/services/es8-master:9200/proxy" \
-ES_SERVICE_ENDPOINT_ES7="http://127.0.0.1:8001/api/v1/namespaces/es-operator-e2e/services/es7-master:9200/proxy" \
+ES_SERVICE_ENDPOINT_ES9="http://127.0.0.1:8001/api/v1/namespaces/es-operator-e2e/services/es9-master:9200/proxy" \
 KUBECONFIG="${HOME}/.kube/config" ./build/linux/e2e -test.v
 
 kill "$proxy_pid"
