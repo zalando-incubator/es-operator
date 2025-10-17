@@ -24,12 +24,12 @@ spec:
       - name: elasticsearch
         resources:
           requests:
-            memory: 1400Mi
+            memory: 1120Mi
             cpu: 100m
           limits:
-            memory: 1400Mi
+            memory: 1120Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch:8.6.2"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:8.19.5"
         env:
         - name: "node.name"
           valueFrom:

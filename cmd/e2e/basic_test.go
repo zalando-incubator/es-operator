@@ -119,7 +119,7 @@ func mergeLabels(labelsSlice ...map[string]string) map[string]string {
 func TestEDSCreateBasic8(t *testing.T) {
 	t.Parallel()
 	edsName := "basic8"
-	edsSpec := testEDSCreate(t, edsName, "8.6.2", "es8-config")
+	edsSpec := testEDSCreate(t, edsName, "8.19.5", "es8-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
