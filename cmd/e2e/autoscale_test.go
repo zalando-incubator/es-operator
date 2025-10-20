@@ -11,7 +11,7 @@ import (
 
 func TestEDSCPUAutoscaleUP8(t *testing.T) {
 	t.Parallel()
-	runTestEDSCPUAutoScaleUP(t, "8.6.2", "es8-config")
+	runTestEDSCPUAutoScaleUP(t, "8.19.5", "es8-config")
 }
 
 func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
@@ -56,12 +56,12 @@ func runTestEDSCPUAutoScaleUP(t *testing.T, version, configMap string) {
 
 func TestEDSAutoscaleUPOnShardCount6(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "8.6.2", "es8-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "8.19.5", "es8-config")
 }
 
-func TestEDSAutoscaleUPOnShardCount7(t *testing.T) {
+func TestEDSAutoscaleUPOnShardCount9(t *testing.T) {
 	t.Parallel()
-	runTestEDSAutoscaleUPOnShardCount(t, "7.17.2", "es7-config")
+	runTestEDSAutoscaleUPOnShardCount(t, "9.1.5", "es9-config")
 }
 
 func runTestEDSAutoscaleUPOnShardCount(t *testing.T, version, configMap string) {
