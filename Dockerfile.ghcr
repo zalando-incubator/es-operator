@@ -7,11 +7,12 @@ COPY --chmod=0644 docker-context/dnf.conf /sysroot/etc/dnf/dnf.conf
 RUN dnf --refresh --releasever=latest --installroot /sysroot -y \
     --setopt=install_weak_deps=False --setopt=fastestmirror=True \
     --setopt=max_parallel_downloads=10 --setopt=deltarpm=True \
+    --setopt=tsflags=noscripts \
     --nodocs install bash coreutils-single curl-minimal microdnf microdnf-dnf glibc-minimal-langpack gnupg2-minimal && \
     echo 'latest' > /sysroot/etc/dnf/vars/releasever && \
     dnf clean all --installroot /sysroot
 
-FROM container-registry.zalando.net/library/scratch:latest
+FROM scratch
 
 LABEL maintainer="Team Pandora @ Zalando SE <team-pandora@zalando.de>"
 
@@ -21,6 +22,6 @@ WORKDIR /
 
 # Copy the correct binary based on the target architecture
 ARG TARGETARCH
-COPY build/linux/${TARGETARCH}/e2e /
+COPY build/linux/${TARGETARCH}/es-operator /es-operator
 
-ENTRYPOINT ["/e2e", "-test.v", "-test.parallel", "64"]
+ENTRYPOINT ["/es-operator"]
