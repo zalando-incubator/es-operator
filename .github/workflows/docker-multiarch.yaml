@@ -82,21 +82,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push E2E Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          # Build E2E binary for amd64 only (typically sufficient for testing)
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/linux/amd64/e2e ./cmd/e2e
-
-          # Build and push E2E image
-          docker buildx build \
-            --platform linux/amd64 \
-            --file ./Dockerfile.e2e \
-            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-e2e:${{ github.sha }} \
-            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-e2e:latest \
-            --push \
-            .
-
   security-scan:
     runs-on: ubuntu-latest
     needs: build-and-push
