@@ -20,6 +20,10 @@ kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es8-master-service.ya
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es9-master.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es9-config.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es9-master-service.yaml
+# Apply RBAC resources (ServiceAccount, ClusterRole, ClusterRoleBinding)
+sed -e "s#{{{NAMESPACE}}}#$NAMESPACE#" < manifests/rbac.yaml \
+    | kubectl apply -f -
+# Apply the operator deployment
 sed -e "s#{{{NAMESPACE}}}#$NAMESPACE#" \
     -e "s#{{{IMAGE}}}#$IMAGE#" \
     -e "s#{{{OPERATOR_ID}}}#$OPERATOR_ID#" < manifests/es-operator.yaml \
