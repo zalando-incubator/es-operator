@@ -18,6 +18,9 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-metadata: ${{ steps.meta.outputs.json }}
 
     permissions:
       contents: read
@@ -71,6 +74,7 @@ jobs:
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/linux/arm64/es-operator -ldflags "-X main.version=$(git describe --tags --always --dirty) -w -s" .
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -88,10 +92,18 @@ jobs:
     if: github.event_name != 'pull_request'
 
     steps:
+      - name: Get image reference from metadata
+        id: image-ref
+        run: |
+          # Extract the first tag from the metadata JSON as the primary image reference
+          IMAGE_REF=$(echo '${{ needs.build-and-push.outputs.image-metadata }}' | jq -r '.tags[0]')
+          echo "image-ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
+          echo "Using image reference: ${IMAGE_REF}"
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ steps.image-ref.outputs.image-ref }}
           format: 'sarif'
           output: 'trivy-results.sarif'
 
