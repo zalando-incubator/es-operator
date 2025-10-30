@@ -27,6 +27,7 @@ pipeline:
         VERSION=$CDP_BUILD_VERSION
       fi
       IMAGE=$IMAGE VERSION=$VERSION make build.push.internal
+      cdp-promote-image "${IMAGE}:${VERSION}"
 - id: e2e
   type: process
   desc: "E2E Tests"
