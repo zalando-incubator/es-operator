@@ -231,7 +231,7 @@ func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds 
 		}
 
 		// Check if this pod is owned by the EDS using proper owner reference validation
-		if o.isPodOwnedByEDS(&pod, eds) {
+		if o.isPodOwnedByEDS(ctx, &pod, eds) {
 			// Patch the pod to add the label
 			patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, esDataSetLabelKey, eds.Name))
 			_, err := o.kube.CoreV1().Pods(o.namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
@@ -249,11 +249,11 @@ func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds 
 }
 
 // isPodOwnedByEDS checks if a pod is owned by the given EDS through proper owner reference validation
-func (o *ElasticsearchOperator) isPodOwnedByEDS(pod *v1.Pod, eds *zv1.ElasticsearchDataSet) bool {
+func (o *ElasticsearchOperator) isPodOwnedByEDS(ctx context.Context, pod *v1.Pod, eds *zv1.ElasticsearchDataSet) bool {
 	for _, ref := range pod.OwnerReferences {
 		if ref.Kind == "StatefulSet" {
 			// Check if StatefulSet is owned by this EDS
-			sts, err := o.kube.AppsV1().StatefulSets(pod.Namespace).Get(context.Background(), ref.Name, metav1.GetOptions{})
+			sts, err := o.kube.AppsV1().StatefulSets(pod.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 			if err == nil {
 				for _, stsRef := range sts.OwnerReferences {
 					if stsRef.UID == eds.UID {
