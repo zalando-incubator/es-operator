@@ -42,6 +42,7 @@ var (
 		Namespace             string
 		ClusterDNSZone        string
 		ElasticsearchEndpoint *url.URL
+		SkipPodLabelMigration bool
 	}
 )
 
@@ -71,6 +72,8 @@ func main() {
 		URLVar(&config.ElasticsearchEndpoint)
 	kingpin.Flag("namespace", "Limit operator to a certain namespace").
 		Default(v1.NamespaceAll).StringVar(&config.Namespace)
+	kingpin.Flag("skip-pod-label-migration", "Skip the pod-label migration process on startup (default: false)").
+		BoolVar(&config.SkipPodLabelMigration)
 
 	kingpin.Parse()
 
@@ -98,6 +101,7 @@ func main() {
 		config.Namespace,
 		config.ClusterDNSZone,
 		config.ElasticsearchEndpoint,
+		config.SkipPodLabelMigration,
 	)
 
 	go handleSigterm(cancel)

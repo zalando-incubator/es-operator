@@ -51,6 +51,7 @@ type ElasticsearchOperator struct {
 	namespace             string
 	clusterDNSZone        string
 	elasticsearchEndpoint *url.URL
+	skipPodLabelMigration bool
 	operating             map[types.UID]operatingEntry
 	sync.Mutex
 	recorder kube_record.EventRecorder
@@ -79,6 +80,7 @@ func NewElasticsearchOperator(
 	namespace,
 	clusterDNSZone string,
 	elasticsearchEndpoint *url.URL,
+	skipPodLabelMigration bool,
 ) *ElasticsearchOperator {
 
 	return &ElasticsearchOperator{
@@ -96,6 +98,7 @@ func NewElasticsearchOperator(
 		namespace:             namespace,
 		clusterDNSZone:        clusterDNSZone,
 		elasticsearchEndpoint: elasticsearchEndpoint,
+		skipPodLabelMigration: skipPodLabelMigration,
 		operating:             make(map[types.UID]operatingEntry),
 		recorder:              createEventRecorder(client),
 	}
@@ -142,8 +145,12 @@ func (o *ElasticsearchOperator) setupInformers(ctx context.Context) error {
 	o.nodeInformer = nodeInformer
 
 	// MIGRATION: Patch all existing EDS pods to ensure they have the es-operator-dataset label
-	if err := o.migrateLabelEDSRelatedPods(ctx); err != nil {
-		o.logger.WithError(err).Warn("Failed to migrate EDS pod labels")
+	if !o.skipPodLabelMigration {
+		if err := o.migrateLabelEDSRelatedPods(ctx); err != nil {
+			o.logger.WithError(err).Warn("Failed to migrate EDS pod labels")
+		}
+	} else {
+		o.logger.Info("Skipping pod-label migration as requested")
 	}
 
 	return nil
