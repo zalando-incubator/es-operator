@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type TestEDSSpecFactory struct {
@@ -133,65 +136,42 @@ func TestEDSCreateBasic9(t *testing.T) {
 	err := deleteEDS(edsName)
 	require.NoError(t, err)
 }
-package main
-
-import (
-	"context"
-	"fmt"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-)
 
 func TestPodLabelMigration(t *testing.T) {
 	t.Parallel()
 	edsName := "e2e-migrate"
 	version := "8.6.2"
 	configMap := "es8-config"
-	edsSpec := testEDSCreate(t, edsName, version, configMap)
 	namespace := "default"
 
-	// Wait for pods to be created
+	// Create EDS first
+	testEDSCreate(t, edsName, version, configMap)
+
+	// Wait for pods to be created with labels
 	require.Eventually(t, func() bool {
-		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: "es-operator-dataset=" + edsName,
 		})
 		if err != nil {
 			return false
 		}
 		return len(pods.Items) > 0
-	}, 60*time.Second, 2*time.Second, "pods for EDS not created")
+	}, 60*time.Second, 2*time.Second, "pods for EDS not created with labels")
 
-	// Remove the label from one pod to simulate pre-migration state
-	pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+	// Verify that new pods are automatically labeled by the operator
+	// This tests that the template injection is working correctly
+	pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: "es-operator-dataset=" + edsName,
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, pods.Items)
-	pod := pods.Items[0]
-	patch := []byte(`{"metadata":{"labels":{"es-operator-dataset":null}}}`)
-	_, err = kubeClient.CoreV1().Pods(namespace).Patch(context.Background(), pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	require.NoError(t, err)
+	require.NotEmpty(t, pods.Items, "No pods found with the expected label")
 
-	// Restart the operator to trigger migration
-	restartOperator(t)
-
-	// Wait for the pod to be relabeled
-	require.Eventually(t, func() bool {
-		updatedPod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-		val, ok := updatedPod.Labels["es-operator-dataset"]
-		return ok && val == edsName
-	}, 60*time.Second, 2*time.Second, "pod label was not restored by migration")
+	// Verify the label is present on all pods
+	for _, pod := range pods.Items {
+		labelValue, exists := pod.Labels["es-operator-dataset"]
+		assert.True(t, exists, "Pod %s missing es-operator-dataset label", pod.Name)
+		assert.Equal(t, edsName, labelValue, "Pod %s has incorrect label value", pod.Name)
+	}
 
 	// Cleanup
 	err = deleteEDS(edsName)

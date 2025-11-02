@@ -34,6 +34,7 @@ const (
 	esDataSetLabelKey                       = "es-operator-dataset"
 	esOperatorAnnotationKey                 = "es-operator.zalando.org/operator"
 	esScalingOperationKey                   = "es-operator.zalando.org/current-scaling-operation"
+	esMigrationCompleteAnnotationKey        = "es-operator.zalando.org/pod-label-migration-complete"
 	defaultElasticsearchDataSetEndpointPort = 9200
 )
 
@@ -150,40 +151,127 @@ func (o *ElasticsearchOperator) setupInformers(ctx context.Context) error {
 
 // migrateLabelEDSRelatedPods ensures all pods for each EDS have the es-operator-dataset label.
 // This is a one-time migration for clusters upgrading to label-based pod selection.
+// Uses annotations to track migration completion and avoid running migration repeatedly.
 func (o *ElasticsearchOperator) migrateLabelEDSRelatedPods(ctx context.Context) error {
+	logger := o.logger.WithField("component", "migration")
+	logger.Info("Starting EDS pod label migration")
+
+	var migratedCount, skippedCount, errorCount int
+
 	edss, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list EDSs for migration: %w", err)
 	}
+
 	for _, eds := range edss.Items {
-		// Find pods that belong to this EDS but do not have the label
-		// We assume pods have a name prefix of eds.Name + "-"
-		pods, err := o.kube.CoreV1().Pods(o.namespace).List(ctx, metav1.ListOptions{})
+		edsLogger := logger.WithField("eds", eds.Name)
+
+		// Check if migration has already been completed for this EDS
+		if eds.Annotations != nil {
+			if _, exists := eds.Annotations[esMigrationCompleteAnnotationKey]; exists {
+				edsLogger.Debug("Migration already completed for EDS, skipping")
+				skippedCount++
+				continue
+			}
+		}
+
+		edsLogger.Info("Starting migration for EDS")
+
+		// Check if this EDS needs migration by looking for proper owner references
+		migrated, err := o.migratePodLabelsForEDS(ctx, &eds)
 		if err != nil {
-			o.logger.WithError(err).Warnf("Failed to list pods for EDS %s/%s", eds.Namespace, eds.Name)
+			edsLogger.WithError(err).Warn("Failed to migrate pod labels for EDS")
+			errorCount++
 			continue
 		}
-		for _, pod := range pods.Items {
-			if pod.Labels == nil {
-				pod.Labels = map[string]string{}
-			}
-			// Check if pod is for this EDS (by name prefix and owner reference)
+
+		if migrated {
+			migratedCount++
+		} else {
+			skippedCount++
+		}
+
+		// Mark migration as complete for this EDS
+		if err := o.markMigrationComplete(ctx, &eds); err != nil {
+			edsLogger.WithError(err).Warn("Failed to mark migration as complete")
+			errorCount++
+		} else {
+			edsLogger.Debug("Marked migration as complete for EDS")
+		}
+	}
+
+	if errorCount > 0 {
+		logger.Warnf("Migration completed with errors: migrated=%d, skipped=%d, errors=%d",
+			migratedCount, skippedCount, errorCount)
+	} else {
+		logger.Infof("Migration completed successfully: migrated=%d, skipped=%d",
+			migratedCount, skippedCount)
+	}
+
+	return nil
+}
+
+// migratePodLabelsForEDS migrates pod labels for a specific EDS using proper owner reference validation
+func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds *zv1.ElasticsearchDataSet) (bool, error) {
+	logger := o.logger.WithField("eds", eds.Name)
+
+	// Get all pods in the namespace
+	pods, err := o.kube.CoreV1().Pods(o.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	var podsPatched int
+	for _, pod := range pods.Items {
+		// Skip pods that already have the label
+		if pod.Labels != nil {
 			if _, ok := pod.Labels[esDataSetLabelKey]; ok {
-				continue // already labeled
+				continue
 			}
-			if len(pod.GenerateName) > 0 && pod.GenerateName == eds.Name+"-" {
-				// Patch the pod to add the label
-				patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, esDataSetLabelKey, eds.Name))
-				_, err := o.kube.CoreV1().Pods(o.namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-				if err != nil {
-					o.logger.WithError(err).Warnf("Failed to patch pod %s for EDS %s/%s", pod.Name, eds.Namespace, eds.Name)
-				} else {
-					o.logger.Infof("Patched pod %s to add label %s=%s", pod.Name, esDataSetLabelKey, eds.Name)
+		}
+
+		// Check if this pod is owned by the EDS using proper owner reference validation
+		if o.isPodOwnedByEDS(&pod, eds) {
+			// Patch the pod to add the label
+			patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, esDataSetLabelKey, eds.Name))
+			_, err := o.kube.CoreV1().Pods(o.namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+			if err != nil {
+				logger.WithError(err).Warnf("Failed to patch pod %s", pod.Name)
+				return false, err
+			} else {
+				logger.Infof("Patched pod %s to add label %s=%s", pod.Name, esDataSetLabelKey, eds.Name)
+				podsPatched++
+			}
+		}
+	}
+
+	return podsPatched > 0, nil
+}
+
+// isPodOwnedByEDS checks if a pod is owned by the given EDS through proper owner reference validation
+func (o *ElasticsearchOperator) isPodOwnedByEDS(pod *v1.Pod, eds *zv1.ElasticsearchDataSet) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "StatefulSet" {
+			// Check if StatefulSet is owned by this EDS
+			sts, err := o.kube.AppsV1().StatefulSets(pod.Namespace).Get(context.Background(), ref.Name, metav1.GetOptions{})
+			if err == nil {
+				for _, stsRef := range sts.OwnerReferences {
+					if stsRef.UID == eds.UID {
+						return true
+					}
 				}
 			}
 		}
 	}
-	return nil
+	return false
+}
+
+// markMigrationComplete marks the migration as complete by adding an annotation to the EDS
+func (o *ElasticsearchOperator) markMigrationComplete(ctx context.Context, eds *zv1.ElasticsearchDataSet) error {
+	// Create the patch to add the migration complete annotation
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"true"}}}`, esMigrationCompleteAnnotationKey))
+	_, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).Patch(ctx, eds.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	return err
 }
 
 // Run runs the main loop of the operator.
