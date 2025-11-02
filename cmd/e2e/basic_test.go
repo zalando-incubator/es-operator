@@ -222,101 +222,58 @@ func TestPodLabelMigration(t *testing.T) {
 		t.Logf("Removed migration annotation to trigger fresh migration")
 	}
 
-	// Create a second EDS to trigger the migration logic
-	// The migration runs during operator startup/initialization, so we simulate this
-	// by creating a new EDS which should trigger the operator's reconciliation loop
-	// and potentially the migration for existing EDSs without the annotation
-	tempEdsName := "migration-trigger"
-	tempEdsSpec := NewTestEDSSpecFactory(tempEdsName, version, configMap).Create()
-	err = createEDS(tempEdsName, tempEdsSpec)
-	require.NoError(t, err)
+	// Restart the operator to trigger migration logic (which runs during startup)
+	// This is more realistic than creating a temporary EDS
+	t.Logf("Restarting operator to trigger pod label migration during startup")
+	err = restartOperator(t)
+	require.NoError(t, err, "Failed to restart operator")
 
-	// Clean up the temporary EDS after a short delay to ensure it triggered reconciliation
-	time.Sleep(5 * time.Second)
-	err = deleteEDS(tempEdsName)
-	require.NoError(t, err)
+	// Verify that the operator actually performed the migration by checking that labels were restored
+	t.Logf("Verifying that operator migration restored labels automatically")
 
-	// The key test: verify that the migration mechanism would work
-	// In practice, migration happens during operator startup, but we test the concept
-	// by verifying that unlabeled pods belonging to an EDS can be identified and patched
-	t.Logf("Verifying migration concept: pods should be identifiable for migration")
-
-	// Get all pods in the namespace (simulating what the migration does)
-	allPods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	require.NoError(t, err)
-
-	// Find StatefulSet for our EDS
-	sts, err := statefulSetInterface().Get(context.Background(), edsName, metav1.GetOptions{})
-	require.NoError(t, err)
-
-	// Verify that the unlabeled pods would be correctly identified as belonging to this EDS
-	// This tests the core logic of the migration: isPodOwnedByEDS
-	var migrateablePods []string
-	for _, pod := range allPods.Items {
-		// Skip pods that already have the label
-		if pod.Labels != nil {
-			if _, ok := pod.Labels["es-operator-dataset"]; ok {
-				continue
-			}
-		}
-
-		// Check if this pod is owned by our EDS (through StatefulSet ownership)
-		for _, ref := range pod.OwnerReferences {
-			if ref.Kind == "StatefulSet" && ref.Name == sts.Name {
-				// This pod would be migrated
-				migrateablePods = append(migrateablePods, pod.Name)
-				break
-			}
-		}
-	}
-
-	t.Logf("Found %d pods that would be migrated", len(migrateablePods))
-	assert.Equal(t, len(unlabeledPods), len(migrateablePods),
-		"Migration logic should identify all unlabeled pods belonging to the EDS")
-
-	// Manually restore labels to complete the test (simulating what migration would do)
-	t.Logf("Manually restoring labels to verify patch mechanism works")
-	for _, podName := range migrateablePods {
-		patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"es-operator-dataset":"%s"}}}`, edsName))
-		_, err := kubernetesClient.CoreV1().Pods(namespace).Patch(
-			context.Background(),
-			podName,
-			types.StrategicMergePatchType,
-			patch,
-			metav1.PatchOptions{},
-		)
-		require.NoError(t, err, "Failed to restore label to pod %s", podName)
-	}
-
-	// Verify all pods have labels again
+	// Verify all pods have labels restored by the operator migration
 	require.Eventually(t, func() bool {
 		pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: "es-operator-dataset=" + edsName,
 		})
 		if err != nil {
+			t.Logf("Failed to list pods with label selector: %v", err)
 			return false
 		}
+		t.Logf("Found %d pods with restored labels (expected %d)", len(pods.Items), len(unlabeledPods))
 		return len(pods.Items) == len(unlabeledPods)
-	}, 30*time.Second, 2*time.Second, "Not all pods have labels restored")
+	}, 60*time.Second, 2*time.Second, "Not all pods have labels restored by operator migration")
 
-	// Verify migration annotation would be added (simulate this)
-	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"true"}}}`, migrationAnnotationKey))
-	_, err = edsInterface().Patch(
-		context.Background(),
-		edsName,
-		types.StrategicMergePatchType,
-		patch,
-		metav1.PatchOptions{},
-	)
-	require.NoError(t, err, "Failed to add migration annotation")
+	// Verify migration annotation was added by the operator
+	require.Eventually(t, func() bool {
+		eds, err := edsInterface().Get(context.Background(), edsName, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("Failed to get EDS: %v", err)
+			return false
+		}
+		if eds.Annotations == nil {
+			t.Logf("EDS has no annotations yet")
+			return false
+		}
+		annotationValue := eds.Annotations[migrationAnnotationKey]
+		t.Logf("Migration annotation value: %s", annotationValue)
+		return annotationValue == "true"
+	}, 60*time.Second, 2*time.Second, "Migration annotation was not set by operator")
 
-	// Final verification
-	eds, err = edsInterface().Get(context.Background(), edsName, metav1.GetOptions{})
+	// Final verification - ensure all pods have the correct label
+	pods, err = kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "es-operator-dataset=" + edsName,
+	})
 	require.NoError(t, err)
-	assert.Equal(t, "true", eds.Annotations[migrationAnnotationKey],
-		"Migration annotation should be set to 'true'")
+	require.Equal(t, len(unlabeledPods), len(pods.Items), "Mismatch in number of labeled pods")
 
-	t.Logf("Migration test completed successfully - verified migration logic, pod identification, labeling, and annotation")
+	for _, pod := range pods.Items {
+		labelValue, exists := pod.Labels["es-operator-dataset"]
+		assert.True(t, exists, "Pod %s missing es-operator-dataset label after migration", pod.Name)
+		assert.Equal(t, edsName, labelValue, "Pod %s has incorrect label value after migration", pod.Name)
+	}
+
+	t.Logf("Migration test completed successfully - operator automatically restored labels and set annotation")
 
 	// Cleanup
 	err = deleteEDS(edsName)

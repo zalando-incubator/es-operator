@@ -315,3 +315,77 @@ func pint64(i int64) *int64 {
 func pint32(i int32) *int32 {
 	return &i
 }
+
+// restartOperator restarts the es-operator deployment by deleting its pods
+// This triggers the migration logic that runs during operator startup
+func restartOperator(t *testing.T) error {
+	// Find the operator deployment
+	deployment, err := kubernetesClient.AppsV1().Deployments(namespace).Get(
+		context.Background(),
+		"es-operator",
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get operator deployment: %v", err)
+	}
+
+	// Delete all pods belonging to the operator deployment
+	pods, err := kubernetesClient.CoreV1().Pods(namespace).List(
+		context.Background(),
+		metav1.ListOptions{
+			LabelSelector: "application=es-operator",
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list operator pods: %v", err)
+	}
+
+	t.Logf("Found %d operator pods to restart", len(pods.Items))
+	for _, pod := range pods.Items {
+		t.Logf("Deleting operator pod: %s", pod.Name)
+		err := kubernetesClient.CoreV1().Pods(namespace).Delete(
+			context.Background(),
+			pod.Name,
+			metav1.DeleteOptions{GracePeriodSeconds: pint64(0)},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to delete operator pod %s: %v", pod.Name, err)
+		}
+	}
+
+	// Wait for the deployment to recreate pods and become ready
+	t.Logf("Waiting for operator deployment to become ready after restart")
+	err = newAwaiter(t, "operator deployment restart").
+		withTimeout(2 * time.Minute).
+		withPoll(func() (bool, error) {
+			// Check if deployment is ready
+			currentDeployment, err := kubernetesClient.AppsV1().Deployments(namespace).Get(
+				context.Background(),
+				"es-operator",
+				metav1.GetOptions{},
+			)
+			if err != nil {
+				return true, fmt.Errorf("failed to get deployment status: %v", err)
+			}
+
+			if currentDeployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+				t.Logf("Operator deployment is ready with %d/%d replicas",
+					currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+				return false, nil
+			}
+
+			t.Logf("Operator deployment not ready yet: %d/%d replicas ready",
+				currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+			return true, fmt.Errorf("deployment not ready: %d/%d replicas",
+				currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+		}).await()
+
+	if err != nil {
+		return fmt.Errorf("operator failed to restart: %v", err)
+	}
+
+	// Give the operator a moment to start processing after becoming ready
+	t.Logf("Operator restarted successfully, waiting for migration processing")
+	time.Sleep(10 * time.Second)
+	return nil
+}
