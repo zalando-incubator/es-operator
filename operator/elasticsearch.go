@@ -222,14 +222,14 @@ func (o *ElasticsearchOperator) migrateLabelEDSRelatedPods(ctx context.Context) 
 func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds *zv1.ElasticsearchDataSet) (bool, error) {
 	logger := o.logger.WithField("eds", eds.Name)
 
-	// Get all pods in the namespace
-	pods, err := o.kube.CoreV1().Pods(o.namespace).List(ctx, metav1.ListOptions{})
+	// Get all pods in the namespace using informer cache instead of direct API call
+	pods, err := o.podInformer.Lister().Pods(o.namespace).List(labels.Everything())
 	if err != nil {
 		return false, fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	var podsPatched int
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		// Skip pods that already have the label
 		if pod.Labels != nil {
 			if _, ok := pod.Labels[esDataSetLabelKey]; ok {
@@ -238,7 +238,7 @@ func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds 
 		}
 
 		// Check if this pod is owned by the EDS using proper owner reference validation
-		if o.isPodOwnedByEDS(ctx, &pod, eds) {
+		if o.isPodOwnedByEDS(ctx, pod, eds) {
 			// Patch the pod to add the label
 			patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, esDataSetLabelKey, eds.Name))
 			_, err := o.kube.CoreV1().Pods(o.namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
