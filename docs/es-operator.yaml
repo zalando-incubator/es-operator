@@ -33,7 +33,7 @@ spec:
       serviceAccountName: es-operator
       containers:
       - name: es-operator
-        image: registry.opensource.zalan.do/poirot/es-operator:latest
+        image: registry.opensource.zalan.do/pandora/es-operator:latest
         resources:
           limits:
             cpu: 20m

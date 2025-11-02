@@ -1,6 +1,6 @@
 # How to release
 
-ES-Operator is released as docker image to Zalando's public Docker repository `registry.opensource.zalan.do`. Every merge to master generates a new Docker image, you could go with `registry.opensource.zalan.do/poirot/es-operator:latest` for the latest and greatest version.
+ES-Operator is released as docker image to Zalando's public Docker repository `registry.opensource.zalan.do`. Every merge to master generates a new Docker image, you could go with `registry.opensource.zalan.do/pandora/es-operator:latest` for the latest and greatest version.
 
 When introducing bigger changes, we create tags and write release notes. The release process itself is triggered via the Zalando-internal CI/CD tool.
 

@@ -16,7 +16,7 @@ Starting with `v0.1.3` the ES-Operator is dual-licensed under [MIT](/LICENSE.MIT
 
 ## Compatibility
 
-The ES-Operator has been tested with Elasticsearch 7.x and 8.x. Previously, we have also tested ES-Operator with Elasticsearch 6.x, and while it still may be working, please consider this support to be dropped.  
+The ES-Operator has been tested with Elasticsearch 8.x and 9.x. Previously, we have also tested ES-Operator with Elasticsearch 6.x and 7.x, and while they still may be working, please consider support for these versions to be dropped.  
 
 ## How it works
 

@@ -1,0 +1,7 @@
+FROM container-registry.zalando.net/library/static:latest
+LABEL maintainer="Team Pandora @ Zalando SE <team-pandora@zalando.de>"
+
+ARG TARGETARCH
+COPY build/linux/${TARGETARCH}/es-operator /es-operator
+
+ENTRYPOINT ["/es-operator"]

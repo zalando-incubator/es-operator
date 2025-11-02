@@ -4,11 +4,26 @@ updates:
   directory: "/"
   schedule:
     interval: monthly
-    time: "07:00"
   open-pull-requests-limit: 10
+  groups:
+    all-go-mod-patch-and-minor:
+      patterns: ["*"]
+      update-types: ["patch", "minor"]
+  ignore:
+  # Ignore k8s and its transitives modules as they are upgraded manually
+  - dependency-name: "k8s.io/*"
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
 - package-ecosystem: docker
   directory: "/"
   schedule:
     interval: monthly
     time: "07:00"
   open-pull-requests-limit: 10
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "monthly"
+  groups:
+    github-actions:
+      patterns:
+        - "*"

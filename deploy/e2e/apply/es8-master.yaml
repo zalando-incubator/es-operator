@@ -24,19 +24,19 @@ spec:
       - name: elasticsearch
         resources:
           requests:
-            memory: 1Gi
+            memory: 1120Mi
             cpu: 100m
           limits:
-            memory: 1Gi
+            memory: 1120Mi
             cpu: 100m
-        image: "docker.elastic.co/elasticsearch/elasticsearch:8.6.2"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:8.19.5"
         env:
         - name: "node.name"
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xms360m -Xmx360m"
+          value: "-Xms560m -Xmx560m"
         - name: node.roles
           value: "master,data"
         readinessProbe:
