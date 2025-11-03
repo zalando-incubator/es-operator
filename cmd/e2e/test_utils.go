@@ -330,18 +330,58 @@ func restartOperator(t *testing.T) error {
 	}
 
 	// Delete all pods belonging to the operator deployment
-	pods, err := kubernetesClient.CoreV1().Pods(namespace).List(
+	// First, find ReplicaSets owned by this deployment
+	replicaSets, err := kubernetesClient.AppsV1().ReplicaSets(namespace).List(
 		context.Background(),
-		metav1.ListOptions{
-			LabelSelector: "application=es-operator",
-		},
+		metav1.ListOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to list operator pods: %v", err)
+		return fmt.Errorf("failed to list replica sets: %v", err)
 	}
 
-	t.Logf("Found %d operator pods to restart", len(pods.Items))
-	for _, pod := range pods.Items {
+	// Find ReplicaSets owned by the operator deployment
+	var ownedReplicaSets []string
+	for _, rs := range replicaSets.Items {
+		for _, ownerRef := range rs.OwnerReferences {
+			if ownerRef.Kind == "Deployment" && ownerRef.Name == "es-operator" && ownerRef.UID == deployment.UID {
+				ownedReplicaSets = append(ownedReplicaSets, rs.Name)
+				break
+			}
+		}
+	}
+
+	if len(ownedReplicaSets) == 0 {
+		t.Logf("No ReplicaSets found owned by deployment %s", deployment.Name)
+		return nil
+	}
+
+	// Now find pods owned by these ReplicaSets
+	allPods, err := kubernetesClient.CoreV1().Pods(namespace).List(
+		context.Background(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list pods: %v", err)
+	}
+
+	// Create a set of ReplicaSet names for efficient lookup
+	rsNames := make(map[string]bool)
+	for _, rsName := range ownedReplicaSets {
+		rsNames[rsName] = true
+	}
+
+	var pods []v1.Pod
+	for _, pod := range allPods.Items {
+		for _, ownerRef := range pod.OwnerReferences {
+			if ownerRef.Kind == "ReplicaSet" && rsNames[ownerRef.Name] {
+				pods = append(pods, pod)
+				break // Found the owner, no need to check other owner references
+			}
+		}
+	}
+
+	t.Logf("Found %d operator pods to restart", len(pods))
+	for _, pod := range pods {
 		t.Logf("Deleting operator pod: %s", pod.Name)
 		err := kubernetesClient.CoreV1().Pods(namespace).Delete(
 			context.Background(),

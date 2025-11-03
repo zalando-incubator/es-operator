@@ -50,6 +50,7 @@ rules:
   resources:
   - statefulsets
   - deployments  # used by e2e tests to restart operator
+  - replicasets  # used by e2e tests to find pods owned by deployment
   verbs:
   - get
   - list
