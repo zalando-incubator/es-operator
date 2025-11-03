@@ -45,18 +45,18 @@ var (
 						},
 					},
 					Env: []v1.EnvVar{
-						{Name: "ES_JAVA_OPTS", Value: "-Xms356m -Xmx356m"},
+						{Name: "ES_JAVA_OPTS", Value: "-Xms560m -Xmx560m"},
 						{Name: "node.roles", Value: "data"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("1Gi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("1120Mi"),
+							v1.ResourceCPU:    resource.MustParse("1000m"),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("1Gi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("1120Mi"),
+							v1.ResourceCPU:    resource.MustParse("200m"),
 						},
 					},
 					ReadinessProbe: &v1.Probe{
@@ -316,7 +316,7 @@ func pint32(i int32) *int32 {
 	return &i
 }
 
-// restartOperator restarts the es-operator deployment by deleting its pods
+// restartOperator restarts the es-operator deployment using rollout restart
 // This triggers the migration logic that runs during operator startup
 func restartOperator(t *testing.T) error {
 	// Find the operator deployment
@@ -329,68 +329,21 @@ func restartOperator(t *testing.T) error {
 		return fmt.Errorf("failed to get operator deployment: %v", err)
 	}
 
-	// Delete all pods belonging to the operator deployment
-	// First, find ReplicaSets owned by this deployment
-	replicaSets, err := kubernetesClient.AppsV1().ReplicaSets(namespace).List(
+	// Trigger a deployment rollout restart by adding/updating a restart annotation
+	// This is the equivalent of `kubectl rollout restart deployment/es-operator`
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = fmt.Sprintf("%d", time.Now().Unix())
+
+	t.Logf("Triggering rollout restart of deployment %s", deployment.Name)
+	_, err = kubernetesClient.AppsV1().Deployments(namespace).Update(
 		context.Background(),
-		metav1.ListOptions{},
+		deployment,
+		metav1.UpdateOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to list replica sets: %v", err)
-	}
-
-	// Find ReplicaSets owned by the operator deployment
-	var ownedReplicaSets []string
-	for _, rs := range replicaSets.Items {
-		for _, ownerRef := range rs.OwnerReferences {
-			if ownerRef.Kind == "Deployment" && ownerRef.Name == "es-operator" && ownerRef.UID == deployment.UID {
-				ownedReplicaSets = append(ownedReplicaSets, rs.Name)
-				break
-			}
-		}
-	}
-
-	if len(ownedReplicaSets) == 0 {
-		t.Logf("No ReplicaSets found owned by deployment %s", deployment.Name)
-		return nil
-	}
-
-	// Now find pods owned by these ReplicaSets
-	allPods, err := kubernetesClient.CoreV1().Pods(namespace).List(
-		context.Background(),
-		metav1.ListOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to list pods: %v", err)
-	}
-
-	// Create a set of ReplicaSet names for efficient lookup
-	rsNames := make(map[string]bool)
-	for _, rsName := range ownedReplicaSets {
-		rsNames[rsName] = true
-	}
-
-	var pods []v1.Pod
-	for _, pod := range allPods.Items {
-		for _, ownerRef := range pod.OwnerReferences {
-			if ownerRef.Kind == "ReplicaSet" && rsNames[ownerRef.Name] {
-				pods = append(pods, pod)
-				break // Found the owner, no need to check other owner references
-			}
-		}
-	}
-
-	t.Logf("Found %d operator pods to restart", len(pods))
-	for _, pod := range pods {
-		t.Logf("Deleting operator pod: %s", pod.Name)
-		err := kubernetesClient.CoreV1().Pods(namespace).Delete(
-			context.Background(),
-			pod.Name,
-			metav1.DeleteOptions{GracePeriodSeconds: pint64(0)},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to delete operator pod %s: %v", pod.Name, err)
-		}
+		return fmt.Errorf("failed to update deployment for restart: %v", err)
 	}
 
 	// Wait for the deployment to recreate pods and become ready
