@@ -44,11 +44,12 @@ rules:
   - watch
   - update
   - patch
-  - delete
+  - delete  # used by e2e tests to restart operator
 - apiGroups:
   - "apps"
   resources:
   - statefulsets
+  - deployments  # used by e2e tests to restart operator
   verbs:
   - get
   - list

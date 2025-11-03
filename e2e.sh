@@ -4,6 +4,13 @@
 # against "some" cluster.
 # You need to run `kubectl proxy` in a different terminal before running the
 # script.
+#
+# If you want to test your local changes, build:
+# IMAGE=es-operator VERSION=local make build.docker.local
+# load it into kind:
+# kind load docker-image es-operator:local
+# .. and run the e2e tests with local image ref:
+# IMAGE=es-operator:local ./e2e.sh
 
 NAMESPACE="${NAMESPACE:-"es-operator-e2e-$(date +%s)"}"
 IMAGE="${IMAGE:-"registry.opensource.zalan.do/pandora/es-operator:latest"}"
@@ -13,7 +20,13 @@ OPERATOR_ID="${OPERATOR_ID:-"e2e-tests"}"
 
 # create namespace and resources
 kubectl create ns "$NAMESPACE"
+# apply CRDs (required for ElasticsearchDataSet resources)
+kubectl apply -f docs/zalando.org_elasticsearchdatasets.yaml -f docs/zalando.org_elasticsearchmetricsets.yaml
 kubectl --namespace "$NAMESPACE" apply -f cmd/e2e/account_cdp.yaml
+# apply RBAC resources - first apply cluster-wide resources, then ServiceAccount to namespace
+sed -e "s#{{{NAMESPACE}}}#$NAMESPACE#" < deploy/e2e/apply/rbac.yaml | kubectl apply -f -
+# create ServiceAccount specifically in the target namespace
+kubectl --namespace "$NAMESPACE" create serviceaccount es-operator --dry-run=client -o yaml | kubectl --namespace "$NAMESPACE" apply -f -
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es8-master.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es8-config.yaml
 kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es8-master-service.yaml
@@ -23,6 +36,10 @@ kubectl --namespace "$NAMESPACE" apply -f deploy/e2e/apply/es9-master-service.ya
 sed -e "s#{{{NAMESPACE}}}#$NAMESPACE#" \
     -e "s#{{{IMAGE}}}#$IMAGE#" \
     -e "s#{{{OPERATOR_ID}}}#$OPERATOR_ID#" < manifests/es-operator.yaml \
+    | sed '/image: /{
+a\
+        imagePullPolicy: Never
+}' \
     | kubectl --namespace "$NAMESPACE" apply -f -
 
 # run e2e tests
