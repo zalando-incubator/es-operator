@@ -45,18 +45,18 @@ var (
 						},
 					},
 					Env: []v1.EnvVar{
-						{Name: "ES_JAVA_OPTS", Value: "-Xms560m -Xmx560m"},
+						{Name: "ES_JAVA_OPTS", Value: "-XX:MaxDirectMemorySize=10M -XX:MaxMetaspaceSize=155273K -XX:ReservedCodeCacheSize=240M -Xss1M -Xms684406K -Xmx684406K -XX:ActiveProcessorCount=2 -Xlog:gc"},
 						{Name: "node.roles", Value: "data"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
 							v1.ResourceMemory: resource.MustParse("1120Mi"),
-							v1.ResourceCPU:    resource.MustParse("1000m"),
+							v1.ResourceCPU:    resource.MustParse("2000m"),
 						},
 						Requests: v1.ResourceList{
 							v1.ResourceMemory: resource.MustParse("1120Mi"),
-							v1.ResourceCPU:    resource.MustParse("200m"),
+							v1.ResourceCPU:    resource.MustParse("50m"),
 						},
 					},
 					ReadinessProbe: &v1.Probe{

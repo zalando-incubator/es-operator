@@ -47,6 +47,6 @@ ES_SERVICE_ENDPOINT_ES8=$SERVICE_ENDPOINT_ES8 \
     ES_SERVICE_ENDPOINT_ES9=$SERVICE_ENDPOINT_ES9 \
     E2E_NAMESPACE="$NAMESPACE" \
     OPERATOR_ID="$OPERATOR_ID" \
-    KUBECONFIG=~/.kube/config echo go test -v -parallel 64 ./cmd/e2e/...
+    KUBECONFIG=~/.kube/config go test -v -parallel 64 ./cmd/e2e/...
 
-# kubectl delete ns "$NAMESPACE"
+kubectl delete ns "$NAMESPACE"
