@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/url"
 	"sync"
 	"time"
@@ -816,14 +815,18 @@ type ESResource struct {
 	Pods                 []v1.Pod
 }
 
-// Replicas returns the desired node replicas of an ElasticsearchDataSet
-// In case it was not specified, it will return '1'.
+// Replicas returns the desired node replicas of an ElasticsearchDataSet.
+// For implementation details, see edsReplicas.
 func (es *ESResource) Replicas() int32 {
 	return edsReplicas(es.ElasticsearchDataSet)
 }
 
 // edsReplicas returns the desired node replicas of an ElasticsearchDataSet
-// In case it was not specified, it will return '1'.
+// as determined through spec.Replicas and autoscaling settings.
+// If unset, and autoscaling is disabled, it will return 1 as the default value.
+// In case autoscaling is enabled and spec.Replicas is nil, it will return 0,
+// leaving the actual scaling target to be calculated by scaleEDS, which will
+// then set spec.Replicas accordingly.
 func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 	scaling := eds.Spec.Scaling
 	if scaling == nil || !scaling.Enabled {
@@ -832,13 +835,11 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
 		}
 		return *eds.Spec.Replicas
 	}
-	// initialize with minReplicas
-	minReplicas := eds.Spec.Scaling.MinReplicas
+	// initialize with 0
 	if eds.Spec.Replicas == nil {
-		return minReplicas
+		return 0
 	}
-	currentReplicas := *eds.Spec.Replicas
-	return int32(math.Max(float64(currentReplicas), float64(scaling.MinReplicas)))
+	return *eds.Spec.Replicas
 }
 
 // collectResources collects all the ElasticsearchDataSet resources and there
