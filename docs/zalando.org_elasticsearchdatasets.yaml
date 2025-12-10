@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: elasticsearchdatasets.zalando.org
 spec:
   group: zalando.org
@@ -595,8 +595,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -874,8 +874,9 @@ spec:
                                   present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable.
-                                      Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -908,9 +909,6 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: |-
-                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
-                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             type: string
@@ -920,10 +918,27 @@ spec:
                                         - fieldPath
                                         type: object
                                         x-kubernetes-map-type: atomic
-                                      resourceFieldRef:
+                                      fileKeyRef:
                                         description: |-
-                                          Selects a resource of the container: only resources limits and requests
-                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                                          FileKeyRef selects a key of the env file.
+                                          Requires the EnvFiles feature gate to be enabled.
+                                        properties:
+                                          key:
+                                            type: string
+                                          optional:
+                                            default: false
+                                            type: boolean
+                                          path:
+                                            type: string
+                                          volumeName:
+                                            type: string
+                                        required:
+                                        - key
+                                        - path
+                                        - volumeName
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      resourceFieldRef:
                                         properties:
                                           containerName:
                                             type: string
@@ -965,8 +980,8 @@ spec:
                             envFrom:
                               description: |-
                                 List of sources to populate environment variables in the container.
-                                The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                will be reported as an event when the container is starting. When a key exists in multiple
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                When a key exists in multiple
                                 sources, the value associated with the last source will take precedence.
                                 Values defined by an Env with a duplicate key will take precedence.
                                 Cannot be updated.
@@ -979,12 +994,6 @@ spec:
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -993,20 +1002,15 @@ spec:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                   prefix:
-                                    description: Optional text to prepend to the name
-                                      of each environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Optional text to prepend to the name of each environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   secretRef:
                                     description: The Secret to select from
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the Secret must
@@ -1597,7 +1601,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -1606,16 +1610,8 @@ spec:
                                       in PodSpec.ResourceClaims.
                                     properties:
                                       name:
-                                        description: |-
-                                          Name must match the name of one entry in pod.spec.resourceClaims of
-                                          the Pod where this field is used. It makes that resource available
-                                          inside a container.
                                         type: string
                                       request:
-                                        description: |-
-                                          Request is the name chosen for a request in the referenced claim.
-                                          If empty, everything from the claim is made available, otherwise
-                                          only the result of this request.
                                         type: string
                                     required:
                                     - name
@@ -1652,10 +1648,10 @@ spec:
                             restartPolicy:
                               description: |-
                                 RestartPolicy defines the restart behavior of individual containers in a pod.
-                                This field may only be set for init containers, and the only allowed value is "Always".
-                                For non-init containers or when this field is not specified,
+                                This overrides the pod-level restart policy. When this field is not specified,
                                 the restart behavior is defined by the Pod's restart policy and the container type.
-                                Setting the RestartPolicy as "Always" for the init container will have the following effect:
+                                Additionally, setting the RestartPolicy as "Always" for the init container will
+                                have the following effect:
                                 this init container will be continually restarted on
                                 exit until all regular containers have terminated. Once all regular
                                 containers have completed, all init containers with restartPolicy "Always"
@@ -1667,6 +1663,49 @@ spec:
                                 init container is started, or after any startupProbe has successfully
                                 completed.
                               type: string
+                            restartPolicyRules:
+                              description: |-
+                                Represents a list of rules to be checked to determine if the
+                                container should be restarted on exit. The rules are evaluated in
+                                order. Once a rule matches a container exit condition, the remaining
+                                rules are ignored. If no rule matches the container exit condition,
+                                the Container-level restart policy determines the whether the container
+                                is restarted or not. Constraints on the rules:
+                                - At most 20 rules are allowed.
+                                - Rules can have the same action.
+                                - Identical rules are not forbidden in validations.
+                                When rules are specified, container MUST set RestartPolicy explicitly
+                                even it if matches the Pod's RestartPolicy.
+                              items:
+                                description: ContainerRestartRule describes how a
+                                  container exit is handled.
+                                properties:
+                                  action:
+                                    description: |-
+                                      Specifies the action taken on a container exit if the requirements
+                                      are satisfied. The only possible value is "Restart" to restart the
+                                      container.
+                                    type: string
+                                  exitCodes:
+                                    description: Represents the exit codes to check
+                                      on container exits.
+                                    properties:
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          format: int32
+                                          type: integer
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - operator
+                                    type: object
+                                required:
+                                - action
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                             securityContext:
                               description: |-
                                 SecurityContext defines the security options the container should be run with.
@@ -2283,8 +2322,9 @@ spec:
                                   present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable.
-                                      Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -2317,9 +2357,6 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: |-
-                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
-                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             type: string
@@ -2329,10 +2366,24 @@ spec:
                                         - fieldPath
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      fileKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          optional:
+                                            default: false
+                                            type: boolean
+                                          path:
+                                            type: string
+                                          volumeName:
+                                            type: string
+                                        required:
+                                        - key
+                                        - path
+                                        - volumeName
+                                        type: object
+                                        x-kubernetes-map-type: atomic
                                       resourceFieldRef:
-                                        description: |-
-                                          Selects a resource of the container: only resources limits and requests
-                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                         properties:
                                           containerName:
                                             type: string
@@ -2374,8 +2425,8 @@ spec:
                             envFrom:
                               description: |-
                                 List of sources to populate environment variables in the container.
-                                The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                will be reported as an event when the container is starting. When a key exists in multiple
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                When a key exists in multiple
                                 sources, the value associated with the last source will take precedence.
                                 Values defined by an Env with a duplicate key will take precedence.
                                 Cannot be updated.
@@ -2388,12 +2439,6 @@ spec:
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -2402,20 +2447,15 @@ spec:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                   prefix:
-                                    description: Optional text to prepend to the name
-                                      of each environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Optional text to prepend to the name of each environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   secretRef:
                                     description: The Secret to select from
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the Secret must
@@ -2986,7 +3026,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -2995,16 +3035,8 @@ spec:
                                       in PodSpec.ResourceClaims.
                                     properties:
                                       name:
-                                        description: |-
-                                          Name must match the name of one entry in pod.spec.resourceClaims of
-                                          the Pod where this field is used. It makes that resource available
-                                          inside a container.
                                         type: string
                                       request:
-                                        description: |-
-                                          Request is the name chosen for a request in the referenced claim.
-                                          If empty, everything from the claim is made available, otherwise
-                                          only the result of this request.
                                         type: string
                                     required:
                                     - name
@@ -3042,9 +3074,43 @@ spec:
                               description: |-
                                 Restart policy for the container to manage the restart behavior of each
                                 container within a pod.
-                                This may only be set for init containers. You cannot set this field on
-                                ephemeral containers.
+                                You cannot set this field on ephemeral containers.
                               type: string
+                            restartPolicyRules:
+                              description: |-
+                                Represents a list of rules to be checked to determine if the
+                                container should be restarted on exit. You cannot set this field on
+                                ephemeral containers.
+                              items:
+                                description: ContainerRestartRule describes how a
+                                  container exit is handled.
+                                properties:
+                                  action:
+                                    description: |-
+                                      Specifies the action taken on a container exit if the requirements
+                                      are satisfied. The only possible value is "Restart" to restart the
+                                      container.
+                                    type: string
+                                  exitCodes:
+                                    description: Represents the exit codes to check
+                                      on container exits.
+                                    properties:
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          format: int32
+                                          type: integer
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - operator
+                                    type: object
+                                required:
+                                - action
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                             securityContext:
                               description: |-
                                 Optional: SecurityContext defines the security options the ephemeral container should be run with.
@@ -3579,7 +3645,9 @@ spec:
                       hostNetwork:
                         description: |-
                           Host networking requested for this pod. Use the host's network namespace.
-                          If this option is set, the ports that will be used must be specified.
+                          When using HostNetwork you should specify ports so the scheduler is aware.
+                          When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`,
+                          and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`.
                           Default to false.
                         type: boolean
                       hostPID:
@@ -3603,6 +3671,19 @@ spec:
                         description: |-
                           Specifies the hostname of the Pod
                           If not specified, the pod's hostname will be set to a system-defined value.
+                        type: string
+                      hostnameOverride:
+                        description: |-
+                          HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.
+                          This field only specifies the pod's hostname and does not affect its DNS records.
+                          When this field is set to a non-empty string:
+                          - It takes precedence over the values set in `hostname` and `subdomain`.
+                          - The Pod's hostname will be set to this value.
+                          - `setHostnameAsFQDN` must be nil or set to false.
+                          - `hostNetwork` must be set to false.
+
+                          This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.
+                          Requires the HostnameOverride feature gate to be enabled.
                         type: string
                       imagePullSecrets:
                         description: |-
@@ -3685,8 +3766,9 @@ spec:
                                   present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable.
-                                      Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -3719,9 +3801,6 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       fieldRef:
-                                        description: |-
-                                          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
-                                          spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                                         properties:
                                           apiVersion:
                                             type: string
@@ -3731,10 +3810,27 @@ spec:
                                         - fieldPath
                                         type: object
                                         x-kubernetes-map-type: atomic
-                                      resourceFieldRef:
+                                      fileKeyRef:
                                         description: |-
-                                          Selects a resource of the container: only resources limits and requests
-                                          (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                                          FileKeyRef selects a key of the env file.
+                                          Requires the EnvFiles feature gate to be enabled.
+                                        properties:
+                                          key:
+                                            type: string
+                                          optional:
+                                            default: false
+                                            type: boolean
+                                          path:
+                                            type: string
+                                          volumeName:
+                                            type: string
+                                        required:
+                                        - key
+                                        - path
+                                        - volumeName
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      resourceFieldRef:
                                         properties:
                                           containerName:
                                             type: string
@@ -3776,8 +3872,8 @@ spec:
                             envFrom:
                               description: |-
                                 List of sources to populate environment variables in the container.
-                                The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                                will be reported as an event when the container is starting. When a key exists in multiple
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                When a key exists in multiple
                                 sources, the value associated with the last source will take precedence.
                                 Values defined by an Env with a duplicate key will take precedence.
                                 Cannot be updated.
@@ -3790,12 +3886,6 @@ spec:
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -3804,20 +3894,15 @@ spec:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                   prefix:
-                                    description: Optional text to prepend to the name
-                                      of each environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Optional text to prepend to the name of each environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   secretRef:
                                     description: The Secret to select from
                                     properties:
                                       name:
                                         default: ""
-                                        description: |-
-                                          Name of the referent.
-                                          This field is effectively required, but due to backwards compatibility is
-                                          allowed to be empty. Instances of this type with an empty value here are
-                                          almost certainly wrong.
-                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                         type: string
                                       optional:
                                         description: Specify whether the Secret must
@@ -4408,7 +4493,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -4417,16 +4502,8 @@ spec:
                                       in PodSpec.ResourceClaims.
                                     properties:
                                       name:
-                                        description: |-
-                                          Name must match the name of one entry in pod.spec.resourceClaims of
-                                          the Pod where this field is used. It makes that resource available
-                                          inside a container.
                                         type: string
                                       request:
-                                        description: |-
-                                          Request is the name chosen for a request in the referenced claim.
-                                          If empty, everything from the claim is made available, otherwise
-                                          only the result of this request.
                                         type: string
                                     required:
                                     - name
@@ -4463,10 +4540,10 @@ spec:
                             restartPolicy:
                               description: |-
                                 RestartPolicy defines the restart behavior of individual containers in a pod.
-                                This field may only be set for init containers, and the only allowed value is "Always".
-                                For non-init containers or when this field is not specified,
+                                This overrides the pod-level restart policy. When this field is not specified,
                                 the restart behavior is defined by the Pod's restart policy and the container type.
-                                Setting the RestartPolicy as "Always" for the init container will have the following effect:
+                                Additionally, setting the RestartPolicy as "Always" for the init container will
+                                have the following effect:
                                 this init container will be continually restarted on
                                 exit until all regular containers have terminated. Once all regular
                                 containers have completed, all init containers with restartPolicy "Always"
@@ -4478,6 +4555,49 @@ spec:
                                 init container is started, or after any startupProbe has successfully
                                 completed.
                               type: string
+                            restartPolicyRules:
+                              description: |-
+                                Represents a list of rules to be checked to determine if the
+                                container should be restarted on exit. The rules are evaluated in
+                                order. Once a rule matches a container exit condition, the remaining
+                                rules are ignored. If no rule matches the container exit condition,
+                                the Container-level restart policy determines the whether the container
+                                is restarted or not. Constraints on the rules:
+                                - At most 20 rules are allowed.
+                                - Rules can have the same action.
+                                - Identical rules are not forbidden in validations.
+                                When rules are specified, container MUST set RestartPolicy explicitly
+                                even it if matches the Pod's RestartPolicy.
+                              items:
+                                description: ContainerRestartRule describes how a
+                                  container exit is handled.
+                                properties:
+                                  action:
+                                    description: |-
+                                      Specifies the action taken on a container exit if the requirements
+                                      are satisfied. The only possible value is "Restart" to restart the
+                                      container.
+                                    type: string
+                                  exitCodes:
+                                    description: Represents the exit codes to check
+                                      on container exits.
+                                    properties:
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          format: int32
+                                          type: integer
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                    required:
+                                    - operator
+                                    type: object
+                                required:
+                                - action
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                             securityContext:
                               description: |-
                                 SecurityContext defines the security options the container should be run with.
@@ -5007,6 +5127,7 @@ spec:
                           - spec.hostPID
                           - spec.hostIPC
                           - spec.hostUsers
+                          - spec.resources
                           - spec.securityContext.appArmorProfile
                           - spec.securityContext.seLinuxOptions
                           - spec.securityContext.seccompProfile
@@ -5160,7 +5281,7 @@ spec:
                         description: |-
                           Resources is the total amount of CPU and Memory resources required by all
                           containers in the pod. It supports specifying Requests and Limits for
-                          "cpu" and "memory" resource names only. ResourceClaims are not supported.
+                          "cpu", "memory" and "hugepages-" resource names only. ResourceClaims are not supported.
 
                           This field enables fine-grained control over resource allocation for the
                           entire pod, allowing resource sharing among containers in a pod.
@@ -5173,7 +5294,7 @@ spec:
                               Claims lists the names of resources, defined in spec.resourceClaims,
                               that are used by this container.
 
-                              This is an alpha field and requires enabling the
+                              This field depends on the
                               DynamicResourceAllocation feature gate.
 
                               This field is immutable. It can only be set for containers.
@@ -5613,16 +5734,8 @@ spec:
                                           selector applies to.
                                         type: string
                                       operator:
-                                        description: |-
-                                          operator represents a key's relationship to a set of values.
-                                          Valid operators are In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: |-
-                                          values is an array of string values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                          the values array must be empty. This array is replaced during a strategic
-                                          merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -6006,11 +6119,6 @@ spec:
                                         format: int32
                                         type: integer
                                       path:
-                                        description: |-
-                                          path is the relative path of the file to map the key to.
-                                          May not be an absolute path.
-                                          May not contain the path element '..'.
-                                          May not start with the string '..'.
                                         type: string
                                     required:
                                     - key
@@ -6108,9 +6216,6 @@ spec:
                                       pod field
                                     properties:
                                       fieldRef:
-                                        description: 'Required: Selects a field of
-                                          the pod: only annotations, labels, name,
-                                          namespace and uid are supported.'
                                         properties:
                                           apiVersion:
                                             type: string
@@ -6121,26 +6226,11 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       mode:
-                                        description: |-
-                                          Optional: mode bits used to set permissions on this file, must be an octal value
-                                          between 0000 and 0777 or a decimal value between 0 and 511.
-                                          YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
-                                          If not specified, the volume defaultMode will be used.
-                                          This might be in conflict with other options that affect the file
-                                          mode, like fsGroup, and the result can be other mode bits set.
                                         format: int32
                                         type: integer
                                       path:
-                                        description: 'Required: Path is  the relative
-                                          path name of the file to be created. Must
-                                          not be absolute or contain the ''..'' path.
-                                          Must be utf-8 encoded. The first item of
-                                          the relative path must not start with ''..'''
                                         type: string
                                       resourceFieldRef:
-                                        description: |-
-                                          Selects a resource of the container: only resources limits and requests
-                                          (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
                                         properties:
                                           containerName:
                                             type: string
@@ -6508,12 +6598,10 @@ spec:
                               description: |-
                                 glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
                                 Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-                                More info: https://examples.k8s.io/volumes/glusterfs/README.md
                               properties:
                                 endpoints:
-                                  description: |-
-                                    endpoints is the endpoint name that details Glusterfs topology.
-                                    More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod
+                                  description: endpoints is the endpoint name that
+                                    details Glusterfs topology.
                                   type: string
                                 path:
                                   description: |-
@@ -6592,7 +6680,7 @@ spec:
                               description: |-
                                 iscsi represents an ISCSI Disk resource that is attached to a
                                 kubelet's host machine and then exposed to the pod.
-                                More info: https://examples.k8s.io/volumes/iscsi/README.md
+                                More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
                               properties:
                                 chapAuthDiscovery:
                                   description: chapAuthDiscovery defines whether support
@@ -6892,6 +6980,25 @@ spec:
                                             type: array
                                             x-kubernetes-list-type: atomic
                                         type: object
+                                      podCertificate:
+                                        properties:
+                                          certificateChainPath:
+                                            type: string
+                                          credentialBundlePath:
+                                            type: string
+                                          keyPath:
+                                            type: string
+                                          keyType:
+                                            type: string
+                                          maxExpirationSeconds:
+                                            format: int32
+                                            type: integer
+                                          signerName:
+                                            type: string
+                                        required:
+                                        - keyType
+                                        - signerName
+                                        type: object
                                       secret:
                                         description: secret information about the
                                           secret data to project
@@ -6980,7 +7087,6 @@ spec:
                               description: |-
                                 rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
                                 Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-                                More info: https://examples.k8s.io/volumes/rbd/README.md
                               properties:
                                 fsType:
                                   description: |-
@@ -7157,11 +7263,6 @@ spec:
                                         format: int32
                                         type: integer
                                       path:
-                                        description: |-
-                                          path is the relative path of the file to map the key to.
-                                          May not be an absolute path.
-                                          May not contain the path element '..'.
-                                          May not start with the string '..'.
                                         type: string
                                     required:
                                     - key
@@ -7484,15 +7585,13 @@ spec:
                             volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                             If specified, the CSI driver will create or update the volume with the attributes defined
                             in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                            it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                            will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                            If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                            will be set by the persistentvolume controller if it exists.
+                            it can be changed after the claim is created. An empty string or nil value indicates that no
+                            VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                            this field can be reset to its previous value (including nil) to cancel the modification.
                             If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                             set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                             exists.
                             More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                            (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                           type: string
                         volumeMode:
                           description: |-

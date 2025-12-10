@@ -9,6 +9,20 @@ data:
     bootstrap.memory_lock: false
     discovery.seed_hosts: [es8-master]
     cluster.initial_master_nodes: [es8-master-0]
+    cluster.no_master_block: "write"
+    gateway.expected_data_nodes: 0
+    indices.breaker.total.use_real_memory: false
+    indices.lifecycle.history_index_enabled: false
+    slm.history_index_enabled: false
+    
+    # Disable X-Pack features
     xpack.security.enabled: false
     xpack.security.transport.ssl.enabled: false
     xpack.security.http.ssl.enabled: false
+    xpack.ml.enabled: false
+    xpack.watcher.enabled: false
+    xpack.graph.enabled: false
+    xpack.ccr.enabled: false
+
+    # Disable EQL
+    xpack.eql.enabled: false
