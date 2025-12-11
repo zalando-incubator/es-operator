@@ -150,6 +150,13 @@ func (as *AutoScaler) GetScalingOperation() (*ScalingOperation, error) {
 
 	managedIndices := as.getManagedIndices(esIndices, esShards)
 	managedNodes := as.getManagedNodes(as.pods, esNodes)
+
+	as.logger.Infof("Calculating scaling operation for: hint=%s, managedIndices=%d, managedNodes=%d",
+		direction,
+		len(managedIndices),
+		len(managedNodes),
+	)
+
 	return as.calculateScalingOperation(managedIndices, managedNodes, direction), nil
 }
 
@@ -213,6 +220,19 @@ func (as *AutoScaler) calculateScalingOperation(managedIndices map[string]ESInde
 	if scalingOperation.ScalingDirection == DOWN && scalingSpec.DiskUsagePercentScaledownWatermark > 0 && as.getMaxDiskUsage(managedNodes) > float64(scalingSpec.DiskUsagePercentScaledownWatermark) {
 		return noopScalingOperation(fmt.Sprintf("Scaling would violate the minimum required disk free percent: %.2f", 75.0))
 	}
+
+	as.logger.Infof("Scaling operation: direction=%s, nodeReplicas=%s, indexReplicaChanges=%d, targetIndexReplicas=%v, description=%s",
+		scalingOperation.ScalingDirection,
+		func() string {
+			if scalingOperation.NodeReplicas == nil {
+				return "unset"
+			}
+			return fmt.Sprintf("%d", *scalingOperation.NodeReplicas)
+		}(),
+		len(scalingOperation.IndexReplicas),
+		scalingOperation.IndexReplicas,
+		scalingOperation.Description,
+	)
 
 	return scalingOperation
 }
