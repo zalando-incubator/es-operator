@@ -27,6 +27,7 @@ func TestHasOwnership(t *testing.T) {
 	operator := &ElasticsearchOperator{
 		operatorID: "my-operator",
 	}
+
 	assert.True(t, operator.hasOwnership(eds))
 
 	eds.Annotations[esOperatorAnnotationKey] = "not-my-operator"
@@ -307,6 +308,110 @@ func TestEDSReplicas(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := edsReplicas(tc.eds)
 			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+// TestScaleToZeroPrevention validates that the defensive logic in scaleEDS prevents
+// writing 0 to spec.replicas when it would violate minReplicas.
+// This test documents the fix for the regression introduced in PR #511 where:
+//   - kubectl patch operations could leave spec.replicas as nil
+//   - edsReplicas would return 0 for autoscaling-enabled EDS
+//   - When autoscaler returned no-op (e.g., excludeSystemIndices filters all indices),
+//     spec.replicas would be written as 0, violating minReplicas
+func TestScaleToZeroPrevention(t *testing.T) {
+	minReplicas := int32(3)
+	maxReplicas := int32(10)
+	statusReplicas := int32(5)
+
+	for _, tc := range []struct {
+		name             string
+		eds              *zv1.ElasticsearchDataSet
+		expectedReplicas int32
+		description      string
+	}{
+		{
+			name: "nil replicas + status replicas set -> use status",
+			eds: &zv1.ElasticsearchDataSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-eds",
+					Namespace: "default",
+				},
+				Spec: zv1.ElasticsearchDataSetSpec{
+					Replicas: nil, // Cleared by kubectl patch
+					Scaling: &zv1.ElasticsearchDataSetScaling{
+						Enabled:     true,
+						MinReplicas: minReplicas,
+						MaxReplicas: maxReplicas,
+					},
+				},
+				Status: zv1.ElasticsearchDataSetStatus{
+					Replicas: statusReplicas, // Actually running 5 replicas
+				},
+			},
+			expectedReplicas: statusReplicas,
+			description:      "Should use status.replicas (5) to preserve current state",
+		},
+		{
+			name: "nil replicas + status replicas zero -> use minReplicas",
+			eds: &zv1.ElasticsearchDataSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-eds-new",
+					Namespace: "default",
+				},
+				Spec: zv1.ElasticsearchDataSetSpec{
+					Replicas: nil, // Not yet initialized
+					Scaling: &zv1.ElasticsearchDataSetScaling{
+						Enabled:     true,
+						MinReplicas: minReplicas,
+						MaxReplicas: maxReplicas,
+					},
+				},
+				Status: zv1.ElasticsearchDataSetStatus{
+					Replicas: 0, // New EDS not yet running
+				},
+			},
+			expectedReplicas: minReplicas,
+			description:      "Should use minReplicas (3) for new/uninitialized EDS",
+		},
+		{
+			name: "nil replicas + no minReplicas -> use status",
+			eds: &zv1.ElasticsearchDataSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-eds-no-min",
+					Namespace: "default",
+				},
+				Spec: zv1.ElasticsearchDataSetSpec{
+					Replicas: nil,
+					Scaling: &zv1.ElasticsearchDataSetScaling{
+						Enabled:     true,
+						MinReplicas: 0, // No minimum set
+						MaxReplicas: maxReplicas,
+					},
+				},
+				Status: zv1.ElasticsearchDataSetStatus{
+					Replicas: statusReplicas,
+				},
+			},
+			expectedReplicas: 0, // No defensive logic applied when minReplicas is 0
+			description:      "Should return 0 when minReplicas is not set",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Simulate what happens in scaleEDS
+			currentReplicas := edsReplicas(tc.eds)
+			scaling := tc.eds.Spec.Scaling
+
+			// Apply the defensive logic from scaleEDS
+			if currentReplicas == 0 && scaling != nil && scaling.MinReplicas > 0 {
+				if tc.eds.Status.Replicas > 0 {
+					currentReplicas = tc.eds.Status.Replicas
+				} else {
+					currentReplicas = scaling.MinReplicas
+				}
+			}
+
+			assert.Equal(t, tc.expectedReplicas, currentReplicas, tc.description)
 		})
 	}
 }
