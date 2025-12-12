@@ -932,6 +932,22 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 	namespace := eds.Namespace
 
 	currentReplicas := edsReplicas(eds)
+
+	// Prevent writing 0 to spec.replicas when it would violate minReplicas
+	// This handles the case where:
+	// - spec.replicas is nil (e.g., after kubectl patch)
+	// - edsReplicas returns 0 for autoscaling initialization
+	// - autoscaler returns no-op (e.g., excludeSystemIndices filters all indices)
+	if currentReplicas == 0 && scaling != nil && scaling.MinReplicas > 0 {
+		// Prefer status.replicas (reflects actual StatefulSet state)
+		if eds.Status.Replicas > 0 {
+			currentReplicas = eds.Status.Replicas
+		} else {
+			// Fallback to minReplicas for new/uninitialized EDS
+			currentReplicas = scaling.MinReplicas
+		}
+	}
+
 	eds.Spec.Replicas = &currentReplicas
 	as := NewAutoScaler(es, o.metricsInterval, client)
 
