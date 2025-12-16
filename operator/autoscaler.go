@@ -151,7 +151,7 @@ func (as *AutoScaler) GetScalingOperation() (*ScalingOperation, error) {
 	managedIndices := as.getManagedIndices(esIndices, esShards)
 	managedNodes := as.getManagedNodes(as.pods, esNodes)
 
-	as.logger.Infof("Calculating scaling operation for: hint=%s, managedIndices=%d, managedNodes=%d",
+	as.logger.Debugf("Calculating scaling operation for: hint=%s, managedIndices=%d, managedNodes=%d",
 		direction,
 		len(managedIndices),
 		len(managedNodes),
