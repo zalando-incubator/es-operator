@@ -367,6 +367,34 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 	require.Equal(t, UP, actual.ScalingDirection, actual.Description)
 }
 
+func TestEnsureMinMaxBoundsAppliedWhenScalingHintNoneAndNothingToDo(t *testing.T) {
+	edS := edsTestFixture(4)
+	edS.Spec.Scaling.MinReplicas = 6
+	edS.Spec.Scaling.MaxReplicas = 0
+	// allow 0 replicas to not trigger index-replica reconciliation
+	edS.Spec.Scaling.MinIndexReplicas = 0
+
+	esNodes := make([]ESNode, 0)
+	esIndices := map[string]ESIndex{
+		"ad1": {Replicas: 0, Primaries: 4, Index: "ad1"},
+	}
+
+	scalingHint := NONE
+
+	// with the given input:
+	// - shard-to-node ratio is 4/4=1, which doesn't violate maxShardsPerNode
+	// - index replicas are within configured bounds
+	// - no scaling hint
+	// this would be a noop operation but we still want
+	// replica bounds (min/max replicas) to be enforced.
+	as := systemUnderTest(edS, nil, nil)
+	actual := as.calculateScalingOperation(esIndices, esNodes, scalingHint)
+
+	require.NotNil(t, actual.NodeReplicas)
+	require.Equal(t, int32(6), *actual.NodeReplicas)
+	require.Equal(t, UP, actual.ScalingDirection)
+}
+
 func TestScaleUpCausedByShardToNodeRatioLessThanOne(t *testing.T) {
 	eds := edsTestFixture(11)
 	esNodes := make([]ESNode, 0)
