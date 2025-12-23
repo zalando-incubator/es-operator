@@ -370,7 +370,7 @@ func TestScaleUpCausedByShardToNodeRatioExceeded(t *testing.T) {
 func TestEnsureMinMaxBoundsAppliedWhenScalingHintNoneAndNothingToDo(t *testing.T) {
 	edS := edsTestFixture(4)
 	edS.Spec.Scaling.MinReplicas = 6
-	edS.Spec.Scaling.MaxReplicas = 0
+	edS.Spec.Scaling.MaxReplicas = 6
 	// allow 0 replicas to not trigger index-replica reconciliation
 	edS.Spec.Scaling.MinIndexReplicas = 0
 
