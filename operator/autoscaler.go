@@ -394,6 +394,16 @@ func (as *AutoScaler) scaleUpOrDown(esIndices map[string]ESIndex, scalingHint Sc
 			Description:      fmt.Sprintf("Decreasing node replicas to %d.", newDesiredNodeReplicas),
 		}
 	}
+
+	boundedNodeReplicas := as.ensureBoundsNodeReplicas(currentDesiredNodeReplicas)
+	if boundedNodeReplicas != currentDesiredNodeReplicas {
+		return &ScalingOperation{
+			ScalingDirection: as.calculateScalingDirection(currentDesiredNodeReplicas, boundedNodeReplicas),
+			NodeReplicas:     &boundedNodeReplicas,
+			Description:      fmt.Sprintf("Adjusting node replicas to %d to fit MinReplicas/MaxReplicas bounds.", boundedNodeReplicas),
+		}
+	}
+
 	return noopScalingOperation("Nothing to do")
 }
 
