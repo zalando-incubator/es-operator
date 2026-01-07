@@ -44,7 +44,7 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	faker := &clientset.Clientset{
 		Interface: fake.NewSimpleClientset(),
 	}
-	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil, false)
 
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -60,7 +60,7 @@ func TestGetElasticsearchEndpoint(t *testing.T) {
 	customEndpoint, err := url.Parse(customURL)
 	assert.NoError(t, err)
 
-	esOperator = NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", ".cluster.local.", customEndpoint)
+	esOperator = NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", ".cluster.local.", customEndpoint, false)
 	url = esOperator.getElasticsearchEndpoint(eds)
 	assert.Equal(t, customURL, url.String())
 }
@@ -69,7 +69,7 @@ func TestGetEmptyElasticSearchDrainingSpec(t *testing.T) {
 	faker := &clientset.Clientset{
 		Interface: fake.NewSimpleClientset(),
 	}
-	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil, false)
 
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +89,7 @@ func TestGetNotEmptyElasticSearchDrainingSpec(t *testing.T) {
 	faker := &clientset.Clientset{
 		Interface: fake.NewSimpleClientset(),
 	}
-	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil)
+	esOperator := NewElasticsearchOperator(faker, nil, 1*time.Second, 1*time.Second, "", "", "cluster.local.", nil, false)
 
 	eds := &zv1.ElasticsearchDataSet{
 		ObjectMeta: metav1.ObjectMeta{

@@ -85,7 +85,7 @@ build.docker.ghcr: build.multiarch
 
 # Local build target for e2e testing (single arch with --load)
 build.docker.local: build.multiarch
-	docker buildx build --platform linux/amd64 -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr --load .
+	docker buildx build --platform linux/$(shell docker version --format '{{.Server.Arch}}') -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr --load .
 
 build.push.ghcr: build.multiarch
 	docker buildx build --platform linux/amd64,linux/arm64 -t "$(IMAGE):$(TAG)" -f Dockerfile.ghcr --push .
