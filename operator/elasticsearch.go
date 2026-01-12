@@ -357,8 +357,8 @@ func (r *EDSResource) UID() types.UID {
 	return r.eds.UID
 }
 
-func (r *EDSResource) Replicas() int32 {
-	return edsReplicas(r.eds)
+func (r *EDSResource) Replicas() *int32 {
+	return edsDesiredReplicas(r.eds)
 }
 
 func (r *EDSResource) PodTemplateSpec() *v1.PodTemplateSpec {
@@ -817,29 +817,52 @@ type ESResource struct {
 
 // Replicas returns the desired node replicas of an ElasticsearchDataSet.
 // For implementation details, see edsReplicas.
-func (es *ESResource) Replicas() int32 {
-	return edsReplicas(es.ElasticsearchDataSet)
+func (es *ESResource) Replicas() *int32 {
+	return edsDesiredReplicas(es.ElasticsearchDataSet)
 }
 
-// edsReplicas returns the desired node replicas of an ElasticsearchDataSet
-// as determined through spec.Replicas and autoscaling settings.
-// If unset, and autoscaling is disabled, it will return 1 as the default value.
-// In case autoscaling is enabled and spec.Replicas is nil, it will return 0,
-// leaving the actual scaling target to be calculated by scaleEDS, which will
-// then set spec.Replicas accordingly.
-func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
+// edsDesiredReplicas returns the current desired scaling target replicas of an
+// ElasticsearchDataSet.
+//
+// For autoscaling-enabled EDS, the desired target is normally stored in
+// spec.replicas. If spec.replicas is unset, this function returns a safe
+// fallback derived from status.replicas and scaling.minReplicas. If no
+// minReplicas is configured, nil is returned to indicate "don't touch".
+//
+// For autoscaling-disabled EDS, nil is returned when spec.replicas is unset to
+// avoid unintentionally changing the StatefulSet replica count.
+func edsDesiredReplicas(eds *zv1.ElasticsearchDataSet) *int32 {
 	scaling := eds.Spec.Scaling
 	if scaling == nil || !scaling.Enabled {
-		if eds.Spec.Replicas == nil {
-			return 1
-		}
-		return *eds.Spec.Replicas
+		return eds.Spec.Replicas
 	}
-	// initialize with 0
-	if eds.Spec.Replicas == nil {
+
+	if eds.Spec.Replicas != nil {
+		return eds.Spec.Replicas
+	}
+
+	if scaling.MinReplicas <= 0 {
+		return nil
+	}
+
+	desired := scaling.MinReplicas
+	if eds.Status.Replicas > 0 && eds.Status.Replicas > desired {
+		desired = eds.Status.Replicas
+	}
+	return &desired
+}
+
+// edsReplicas returns the desired node replicas of an ElasticsearchDataSet as
+// determined through spec.replicas and autoscaling settings.
+//
+// This is a compatibility wrapper for existing internal call sites that require
+// an int32 instead of a pointer. Use edsDesiredReplicas where possible.
+func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
+	desired := edsDesiredReplicas(eds)
+	if desired == nil {
 		return 0
 	}
-	return *eds.Spec.Replicas
+	return *desired
 }
 
 // collectResources collects all the ElasticsearchDataSet resources and there

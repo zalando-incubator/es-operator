@@ -60,7 +60,7 @@ type StatefulResource interface {
 	// LabelSelector returns a set of labels to be used for label selecting.
 	LabelSelector() map[string]string
 	// Replicas returns the desired replicas of the resource.
-	Replicas() int32
+	Replicas() *int32
 	// PodTemplateSpec returns the pod template spec of the resource. This
 	// is added to the underlying StatefulSet.
 	PodTemplateSpec() *v1.PodTemplateSpec
@@ -185,7 +185,7 @@ func (o *Operator) reconcileStatefulset(ctx context.Context, srg StatefulResourc
 	createStatefulSet := false
 
 	if sts == nil {
-		replicas := sr.Replicas()
+		desiredReplicas := sr.Replicas()
 		createStatefulSet = true
 		sts = &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
@@ -205,7 +205,7 @@ func (o *Operator) reconcileStatefulset(ctx context.Context, srg StatefulResourc
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
-				Replicas:             &replicas,
+				Replicas:             desiredReplicas,
 				VolumeClaimTemplates: sr.VolumeClaimTemplates(),
 			},
 		}
@@ -301,7 +301,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg
 	}
 
 	// prefer scale up over draining nodes.
-	if replicas < desiredReplicas {
+	if desiredReplicas != nil && replicas < *desiredReplicas {
 		err := o.rescaleStatefulSet(ctx, sts, srg)
 		if err != nil {
 			return fmt.Errorf("failed to rescale StatefulSet: %v", err)
@@ -337,7 +337,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg
 	}
 
 	// scale out by one to perform the update
-	if int32(desiredReplicas) == replicas {
+	if desiredReplicas != nil && *desiredReplicas == replicas {
 		replicas++
 		sts.Spec.Replicas = &replicas
 
@@ -413,7 +413,11 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 	if err != nil {
 		return fmt.Errorf("failed to refresh EDS: %v", err)
 	}
-	desiredReplicas := int(sr.Replicas())
+	desiredReplicasPtr := sr.Replicas()
+	if desiredReplicasPtr == nil {
+		return nil
+	}
+	desiredReplicas := int(*desiredReplicasPtr)
 
 	replicaDiff = desiredReplicas - currentReplicas
 
@@ -463,7 +467,11 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 			if err != nil {
 				return fmt.Errorf("failed to refresh EDS: %v", err)
 			}
-			newDesiredReplicas := int(newSR.Replicas())
+			newDesiredReplicasPtr := newSR.Replicas()
+			if newDesiredReplicasPtr == nil {
+				return nil
+			}
+			newDesiredReplicas := int(*newDesiredReplicasPtr)
 			if newDesiredReplicas > desiredReplicas {
 				log.Infof("EDS %s/%s target scaling definition changed from %d to %d, aborting scale-down", newSR.Namespace(), newSR.Name(), desiredReplicas, newDesiredReplicas)
 				return nil
@@ -777,8 +785,7 @@ func prioritizePodsForUpdate(pods []*v1.Pod, sts *appsv1.StatefulSet, sr Statefu
 			replicas = *sts.Spec.Replicas
 		}
 
-		// scale out by one to perform the update
-		if desiredReplicas != replicas {
+		if desiredReplicas != nil && *desiredReplicas != replicas {
 			prio.Priority += stsReplicaDiffPriority
 		}
 
