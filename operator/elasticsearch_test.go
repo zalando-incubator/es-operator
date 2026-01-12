@@ -300,13 +300,13 @@ func TestEDSReplicas(t *testing.T) {
 					Replicas: &three,
 				},
 			},
-			// edsDesiredReplicas should reflect the current scaling target
-			// ensuring bounds is responsibility of the autoscaler
+			// edsReplicas should reflect the current scaling target.
+			// Ensuring bounds is responsibility of the autoscaler.
 			expected: &three,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := edsDesiredReplicas(tc.eds)
+			actual := edsReplicas(tc.eds)
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
@@ -319,7 +319,7 @@ func TestEDSReplicas(t *testing.T) {
 //   - edsReplicas would return 0 for autoscaling-enabled EDS
 //   - When autoscaler returned no-op (e.g., excludeSystemIndices filters all indices),
 //     spec.replicas would be written as 0, violating minReplicas
-func TestEDSDesiredReplicasFallback(t *testing.T) {
+func TestEDSReplicasFallback(t *testing.T) {
 	minReplicas := int32(3)
 	maxReplicas := int32(10)
 	statusReplicas := int32(5)
@@ -371,7 +371,7 @@ func TestEDSDesiredReplicasFallback(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := edsDesiredReplicas(tc.eds)
+			actual := edsReplicas(tc.eds)
 			assert.Equal(t, tc.expected, actual, tc.description)
 		})
 	}
