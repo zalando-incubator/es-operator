@@ -217,6 +217,19 @@ func TestValidateScalingSettings(tt *testing.T) {
 			err: true,
 		},
 		{
+			msg: "test minReplicas = 0 with autoscaling enabled (scale-to-zero prevention)",
+			scaling: &zv1.ElasticsearchDataSetScaling{
+				Enabled:          true,
+				MinReplicas:      0,
+				MaxReplicas:      10,
+				MinIndexReplicas: 0,
+				MaxIndexReplicas: 2,
+				MinShardsPerNode: 1,
+				MaxShardsPerNode: 2,
+			},
+			err: true,
+		},
+		{
 			msg: "test minShardsPerNode > 0 and minReplicas < 1",
 			scaling: &zv1.ElasticsearchDataSetScaling{
 				Enabled:          true,
@@ -367,12 +380,56 @@ func TestEDSReplicasFallback(t *testing.T) {
 				Status: zv1.ElasticsearchDataSetStatus{Replicas: statusReplicas},
 			},
 			expected:    nil,
-			description: "Without minReplicas configured, do not touch replicas",
+			description: "Note: minReplicas=0 with autoscaling enabled should be rejected by validation, but edsReplicas returns nil when it occurs",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := edsReplicas(tc.eds)
 			assert.Equal(t, tc.expected, actual, tc.description)
+		})
+	}
+}
+
+// TestEDSReplicasEnforcesMinimumOne verifies that edsReplicas enforces
+// a minimum of 1 replica to prevent scale-to-zero scenarios.
+func TestEDSReplicasEnforcesMinimumOne(t *testing.T) {
+	one := int32(1)
+	minReplicas := int32(1)
+	maxReplicas := int32(10)
+
+	for _, tc := range []struct {
+		name     string
+		eds      *zv1.ElasticsearchDataSet
+		expected *int32
+	}{
+		{
+			name: "minReplicas=1, status=0 -> returns 1",
+			eds: &zv1.ElasticsearchDataSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-eds", Namespace: "default"},
+				Spec: zv1.ElasticsearchDataSetSpec{
+					Replicas: nil,
+					Scaling:  &zv1.ElasticsearchDataSetScaling{Enabled: true, MinReplicas: minReplicas, MaxReplicas: maxReplicas},
+				},
+				Status: zv1.ElasticsearchDataSetStatus{Replicas: 0},
+			},
+			expected: &one,
+		},
+		{
+			name: "minReplicas=1, status=5 -> returns 5",
+			eds: &zv1.ElasticsearchDataSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-eds", Namespace: "default"},
+				Spec: zv1.ElasticsearchDataSetSpec{
+					Replicas: nil,
+					Scaling:  &zv1.ElasticsearchDataSetScaling{Enabled: true, MinReplicas: minReplicas, MaxReplicas: maxReplicas},
+				},
+				Status: zv1.ElasticsearchDataSetStatus{Replicas: 5},
+			},
+			expected: &[]int32{5}[0],
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := edsReplicas(tc.eds)
+			assert.Equal(t, tc.expected, actual)
 		})
 	}
 }

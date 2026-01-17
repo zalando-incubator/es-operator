@@ -823,6 +823,8 @@ func (es *ESResource) Replicas() *int32 {
 // edsReplicas returns the desired replicas for an ElasticsearchDataSet.
 //
 // It returns nil to indicate "don't touch".
+// When autoscaling is enabled and spec.replicas is not set, it returns
+// max(minReplicas, status.replicas, 1) to prevent scale-to-zero.
 func edsReplicas(eds *zv1.ElasticsearchDataSet) *int32 {
 	scaling := eds.Spec.Scaling
 	if scaling == nil || !scaling.Enabled {
@@ -837,7 +839,12 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) *int32 {
 		return nil
 	}
 
+	// Use max(minReplicas, 1) as base to prevent scale-to-zero
 	desired := scaling.MinReplicas
+	if desired < 1 {
+		desired = 1
+	}
+
 	if eds.Status.Replicas > 0 && eds.Status.Replicas > desired {
 		desired = eds.Status.Replicas
 	}
@@ -939,16 +946,26 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 	// If edsReplicas returns nil, we derive a fallback to avoid implicitly
 	// scaling to zero.
 	if currentReplicasPtr == nil {
+		// Default fallback value (minimum 1)
+		desired := int32(1)
+
 		if scaling != nil && scaling.MinReplicas > 0 {
-			desired := scaling.MinReplicas
+			desired = scaling.MinReplicas
 			if eds.Status.Replicas > 0 && eds.Status.Replicas > desired {
 				desired = eds.Status.Replicas
 			}
-			currentReplicasPtr = &desired
-		} else {
-			desired := int32(0)
-			currentReplicasPtr = &desired
+		} else if eds.Status.Replicas > 0 {
+			// Use status as fallback but never below 1
+			desired = eds.Status.Replicas
 		}
+
+		// Absolute safety check to prevent scale-to-zero
+		if desired < 1 {
+			log.Infof("EDS %s/%s: Fallback calculation resulted in %d, enforcing minimum of 1", eds.Namespace, eds.Name, desired)
+			desired = 1
+		}
+
+		currentReplicasPtr = &desired
 	}
 
 	currentReplicas := *currentReplicasPtr
@@ -1047,6 +1064,14 @@ func validateScalingSettings(scaling *zv1.ElasticsearchDataSetScaling) error {
 	// don't validate if scaling is not enabled
 	if scaling == nil || !scaling.Enabled {
 		return nil
+	}
+
+	// Prevent scale-to-zero: minReplicas must be at least 1 when autoscaling is enabled
+	if scaling.MinReplicas < 1 {
+		return fmt.Errorf(
+			"minReplicas must be at least 1 when autoscaling is enabled (got %d)",
+			scaling.MinReplicas,
+		)
 	}
 
 	// check that min is not greater than max values

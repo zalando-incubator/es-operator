@@ -757,6 +757,31 @@ func TestGetManagedNodes(t *testing.T) {
 	require.Equal(t, "1.2.3.4", actual[0].IP)
 }
 
+func TestAutoscalerEnforcesMinimumOneReplica(t *testing.T) {
+	// Test that ensureBoundsNodeReplicas never returns 0, even with misconfigured minReplicas=0
+	eds := edsTestFixture(1)
+	eds.Spec.Scaling.MinReplicas = 0 // Misconfigured (should be prevented by validation)
+	eds.Spec.Scaling.MaxReplicas = 10
+
+	as := systemUnderTest(eds, nil, nil)
+
+	// Test various inputs to ensureBoundsNodeReplicas
+	testCases := []struct {
+		input    int32
+		expected int32
+	}{
+		{input: -1, expected: 1},
+		{input: 0, expected: 1},
+		{input: 1, expected: 1},
+		{input: 5, expected: 5},
+	}
+
+	for _, tc := range testCases {
+		result := as.ensureBoundsNodeReplicas(tc.input)
+		require.Equal(t, tc.expected, result, "Input %d should result in %d, got %d", tc.input, tc.expected, result)
+	}
+}
+
 func systemUnderTest(eds *zv1.ElasticsearchDataSet, metricSet *zv1.ElasticsearchMetricSet, pods []v1.Pod) *AutoScaler {
 	es := &ESResource{
 		ElasticsearchDataSet: eds,

@@ -186,6 +186,15 @@ func (o *Operator) reconcileStatefulset(ctx context.Context, srg StatefulResourc
 
 	if sts == nil {
 		desiredReplicas := sr.Replicas()
+
+		// Safety check to prevent scale-to-zero
+		if desiredReplicas != nil && *desiredReplicas < 1 {
+			return nil, fmt.Errorf(
+				"refusing to scale StatefulSet %s/%s to %d replicas (minimum is 1)",
+				sr.Namespace(), sr.Name(), *desiredReplicas,
+			)
+		}
+
 		createStatefulSet = true
 		sts = &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
@@ -413,6 +422,7 @@ func (o *Operator) rescaleStatefulSet(ctx context.Context, sts *appsv1.StatefulS
 		return err
 	}
 	if desiredReplicas == nil {
+		log.Debugf("EDS %s/%s: Desired replicas not set, skipping rescale", sr.Namespace(), sr.Name())
 		return nil
 	}
 
