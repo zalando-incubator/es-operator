@@ -357,7 +357,7 @@ func (r *EDSResource) UID() types.UID {
 	return r.eds.UID
 }
 
-func (r *EDSResource) Replicas() int32 {
+func (r *EDSResource) Replicas() *int32 {
 	return edsReplicas(r.eds)
 }
 
@@ -815,31 +815,40 @@ type ESResource struct {
 	Pods                 []v1.Pod
 }
 
-// Replicas returns the desired node replicas of an ElasticsearchDataSet.
-// For implementation details, see edsReplicas.
-func (es *ESResource) Replicas() int32 {
+// Replicas returns the desired replicas for the ElasticsearchDataSet.
+func (es *ESResource) Replicas() *int32 {
 	return edsReplicas(es.ElasticsearchDataSet)
 }
 
-// edsReplicas returns the desired node replicas of an ElasticsearchDataSet
-// as determined through spec.Replicas and autoscaling settings.
-// If unset, and autoscaling is disabled, it will return 1 as the default value.
-// In case autoscaling is enabled and spec.Replicas is nil, it will return 0,
-// leaving the actual scaling target to be calculated by scaleEDS, which will
-// then set spec.Replicas accordingly.
-func edsReplicas(eds *zv1.ElasticsearchDataSet) int32 {
+// edsReplicas returns the desired replicas for an ElasticsearchDataSet.
+//
+// It returns nil to indicate "don't touch".
+// When autoscaling is enabled and spec.replicas is not set, it returns
+// max(minReplicas, status.replicas, 1) to prevent scale-to-zero.
+func edsReplicas(eds *zv1.ElasticsearchDataSet) *int32 {
 	scaling := eds.Spec.Scaling
 	if scaling == nil || !scaling.Enabled {
-		if eds.Spec.Replicas == nil {
-			return 1
-		}
-		return *eds.Spec.Replicas
+		return eds.Spec.Replicas
 	}
-	// initialize with 0
-	if eds.Spec.Replicas == nil {
-		return 0
+
+	if eds.Spec.Replicas != nil {
+		return eds.Spec.Replicas
 	}
-	return *eds.Spec.Replicas
+
+	if scaling.MinReplicas <= 0 {
+		return nil
+	}
+
+	// Use max(minReplicas, 1) as base to prevent scale-to-zero
+	desired := scaling.MinReplicas
+	if desired < 1 {
+		desired = 1
+	}
+
+	if eds.Status.Replicas > 0 && eds.Status.Replicas > desired {
+		desired = eds.Status.Replicas
+	}
+	return &desired
 }
 
 // collectResources collects all the ElasticsearchDataSet resources and there
@@ -931,24 +940,36 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 	name := eds.Name
 	namespace := eds.Namespace
 
-	currentReplicas := edsReplicas(eds)
+	currentReplicasPtr := edsReplicas(eds)
 
-	// Prevent writing 0 to spec.replicas when it would violate minReplicas
-	// This handles the case where:
-	// - spec.replicas is nil (e.g., after kubectl patch)
-	// - edsReplicas returns 0 for autoscaling initialization
-	// - autoscaler returns no-op (e.g., excludeSystemIndices filters all indices)
-	if currentReplicas == 0 && scaling != nil && scaling.MinReplicas > 0 {
-		// Prefer status.replicas (reflects actual StatefulSet state)
-		if eds.Status.Replicas > 0 {
-			currentReplicas = eds.Status.Replicas
-		} else {
-			// Fallback to minReplicas for new/uninitialized EDS
-			currentReplicas = scaling.MinReplicas
+	// Ensure spec.replicas is initialized to a safe value.
+	// If edsReplicas returns nil, we derive a fallback to avoid implicitly
+	// scaling to zero.
+	if currentReplicasPtr == nil {
+		// Default fallback value (minimum 1)
+		desired := int32(1)
+
+		if scaling != nil && scaling.MinReplicas > 0 {
+			desired = scaling.MinReplicas
+			if eds.Status.Replicas > 0 && eds.Status.Replicas > desired {
+				desired = eds.Status.Replicas
+			}
+		} else if eds.Status.Replicas > 0 {
+			// Use status as fallback but never below 1
+			desired = eds.Status.Replicas
 		}
+
+		// Absolute safety check to prevent scale-to-zero
+		if desired < 1 {
+			log.Infof("EDS %s/%s: Fallback calculation resulted in %d, enforcing minimum of 1", eds.Namespace, eds.Name, desired)
+			desired = 1
+		}
+
+		currentReplicasPtr = &desired
 	}
 
-	eds.Spec.Replicas = &currentReplicas
+	currentReplicas := *currentReplicasPtr
+	eds.Spec.Replicas = currentReplicasPtr
 	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {
@@ -1043,6 +1064,14 @@ func validateScalingSettings(scaling *zv1.ElasticsearchDataSetScaling) error {
 	// don't validate if scaling is not enabled
 	if scaling == nil || !scaling.Enabled {
 		return nil
+	}
+
+	// Prevent scale-to-zero: minReplicas must be at least 1 when autoscaling is enabled
+	if scaling.MinReplicas < 1 {
+		return fmt.Errorf(
+			"minReplicas must be at least 1 when autoscaling is enabled (got %d)",
+			scaling.MinReplicas,
+		)
 	}
 
 	// check that min is not greater than max values

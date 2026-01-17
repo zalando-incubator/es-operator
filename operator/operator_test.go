@@ -23,7 +23,7 @@ type mockResource struct {
 	generation           int64
 	labels               map[string]string
 	labelSelector        map[string]string
-	replicas             int32
+	replicas             *int32
 	eds                  *zv1.ElasticsearchDataSet
 	podTemplateSpec      *v1.PodTemplateSpec
 	volumeClaimTemplates []v1.PersistentVolumeClaim
@@ -37,7 +37,7 @@ func (r *mockResource) Labels() map[string]string            { return r.labels }
 func (r *mockResource) LabelSelector() map[string]string     { return r.labelSelector }
 func (r *mockResource) Generation() int64                    { return r.generation }
 func (r *mockResource) UID() types.UID                       { return r.uid }
-func (r *mockResource) Replicas() int32                      { return r.replicas }
+func (r *mockResource) Replicas() *int32                     { return r.replicas }
 func (r *mockResource) PodTemplateSpec() *v1.PodTemplateSpec { return r.podTemplateSpec }
 func (r *mockResource) VolumeClaimTemplates() []v1.PersistentVolumeClaim {
 	return r.volumeClaimTemplates
@@ -204,7 +204,7 @@ func TestPrioritizePodsForUpdate(t *testing.T) {
 	desiredReplicas := int32(1)
 	currentReplicas := int32(3)
 	sr = &mockResource{
-		replicas: desiredReplicas,
+		replicas: &desiredReplicas,
 	}
 
 	sts = &appsv1.StatefulSet{
