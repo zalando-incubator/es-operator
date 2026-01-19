@@ -33,6 +33,7 @@ const (
 	esDataSetLabelKey                       = "es-operator-dataset"
 	esOperatorAnnotationKey                 = "es-operator.zalando.org/operator"
 	esScalingOperationKey                   = "es-operator.zalando.org/current-scaling-operation"
+	esMigrationCompleteAnnotationKey        = "es-operator.zalando.org/pod-label-migration-complete"
 	defaultElasticsearchDataSetEndpointPort = 9200
 )
 
@@ -49,6 +50,7 @@ type ElasticsearchOperator struct {
 	namespace             string
 	clusterDNSZone        string
 	elasticsearchEndpoint *url.URL
+	skipPodLabelMigration bool
 	operating             map[types.UID]operatingEntry
 	sync.Mutex
 	recorder kube_record.EventRecorder
@@ -77,6 +79,7 @@ func NewElasticsearchOperator(
 	namespace,
 	clusterDNSZone string,
 	elasticsearchEndpoint *url.URL,
+	skipPodLabelMigration bool,
 ) *ElasticsearchOperator {
 
 	return &ElasticsearchOperator{
@@ -94,12 +97,15 @@ func NewElasticsearchOperator(
 		namespace:             namespace,
 		clusterDNSZone:        clusterDNSZone,
 		elasticsearchEndpoint: elasticsearchEndpoint,
+		skipPodLabelMigration: skipPodLabelMigration,
 		operating:             make(map[types.UID]operatingEntry),
 		recorder:              createEventRecorder(client),
 	}
 }
 
-// setup informers for pods and nodes.
+/*
+setupInformers sets up informers for pods and nodes, and runs a migration to ensure all EDS pods are labeled.
+*/
 func (o *ElasticsearchOperator) setupInformers(ctx context.Context) error {
 	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(o.kube, 0, kubeinformers.WithNamespace(o.namespace))
 	podInformer := informerFactory.Core().V1().Pods()
@@ -136,7 +142,142 @@ func (o *ElasticsearchOperator) setupInformers(ctx context.Context) error {
 
 	o.podInformer = podInformer
 	o.nodeInformer = nodeInformer
+
+	// MIGRATION: Patch all existing EDS pods to ensure they have the es-operator-dataset label
+	if !o.skipPodLabelMigration {
+		if err := o.migrateLabelEDSRelatedPods(ctx); err != nil {
+			o.logger.WithError(err).Warn("Failed to migrate EDS pod labels")
+		}
+	} else {
+		o.logger.Info("Skipping pod-label migration as requested")
+	}
+
 	return nil
+}
+
+// migrateLabelEDSRelatedPods ensures all pods for each EDS have the es-operator-dataset label.
+// This is a one-time migration for clusters upgrading to label-based pod selection.
+// Uses annotations to track migration completion and avoid running migration repeatedly.
+func (o *ElasticsearchOperator) migrateLabelEDSRelatedPods(ctx context.Context) error {
+	logger := o.logger.WithField("component", "migration")
+	logger.Info("Starting EDS pod label migration")
+
+	var migratedCount, skippedCount, errorCount int
+
+	edss, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list EDSs for migration: %w", err)
+	}
+
+	for _, eds := range edss.Items {
+		edsLogger := logger.WithField("eds", eds.Name)
+
+		// Check if migration has already been completed for this EDS
+		if eds.Annotations != nil {
+			if _, exists := eds.Annotations[esMigrationCompleteAnnotationKey]; exists {
+				edsLogger.Debug("Migration already completed for EDS, skipping")
+				skippedCount++
+				continue
+			}
+		}
+
+		edsLogger.Info("Starting migration for EDS")
+
+		// Check if this EDS needs migration by looking for proper owner references
+		migrated, err := o.migratePodLabelsForEDS(ctx, &eds)
+		if err != nil {
+			edsLogger.WithError(err).Warn("Failed to migrate pod labels for EDS")
+			errorCount++
+			continue
+		}
+
+		if migrated {
+			migratedCount++
+		} else {
+			skippedCount++
+		}
+
+		// Mark migration as complete for this EDS
+		if err := o.markMigrationComplete(ctx, &eds); err != nil {
+			edsLogger.WithError(err).Warn("Failed to mark migration as complete")
+			errorCount++
+		} else {
+			edsLogger.Debug("Marked migration as complete for EDS")
+		}
+	}
+
+	if errorCount > 0 {
+		logger.Warnf("Migration completed with errors: migrated=%d, skipped=%d, errors=%d",
+			migratedCount, skippedCount, errorCount)
+	} else {
+		logger.Infof("Migration completed successfully: migrated=%d, skipped=%d",
+			migratedCount, skippedCount)
+	}
+
+	return nil
+}
+
+// migratePodLabelsForEDS migrates pod labels for a specific EDS using proper owner reference validation
+func (o *ElasticsearchOperator) migratePodLabelsForEDS(ctx context.Context, eds *zv1.ElasticsearchDataSet) (bool, error) {
+	logger := o.logger.WithField("eds", eds.Name)
+
+	// Get all pods in the namespace using informer cache instead of direct API call
+	pods, err := o.podInformer.Lister().Pods(o.namespace).List(labels.Everything())
+	if err != nil {
+		return false, fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	var podsPatched int
+	for _, pod := range pods {
+		// Skip pods that already have the label
+		if pod.Labels != nil {
+			if _, ok := pod.Labels[esDataSetLabelKey]; ok {
+				continue
+			}
+		}
+
+		// Check if this pod is owned by the EDS using proper owner reference validation
+		if o.isPodOwnedByEDS(ctx, pod, eds) {
+			// Patch the pod to add the label
+			patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, esDataSetLabelKey, eds.Name))
+			_, err := o.kube.CoreV1().Pods(o.namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+			if err != nil {
+				logger.WithError(err).Warnf("Failed to patch pod %s", pod.Name)
+				return false, err
+			} else {
+				logger.Infof("Patched pod %s to add label %s=%s", pod.Name, esDataSetLabelKey, eds.Name)
+				podsPatched++
+			}
+		}
+	}
+
+	return podsPatched > 0, nil
+}
+
+// isPodOwnedByEDS checks if a pod is owned by the given EDS through proper owner reference validation
+func (o *ElasticsearchOperator) isPodOwnedByEDS(ctx context.Context, pod *v1.Pod, eds *zv1.ElasticsearchDataSet) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "StatefulSet" {
+			// Check if StatefulSet is owned by this EDS
+			sts, err := o.kube.AppsV1().StatefulSets(pod.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
+			if err == nil {
+				for _, stsRef := range sts.OwnerReferences {
+					if stsRef.UID == eds.UID {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// markMigrationComplete marks the migration as complete by adding an annotation to the EDS
+func (o *ElasticsearchOperator) markMigrationComplete(ctx context.Context, eds *zv1.ElasticsearchDataSet) error {
+	// Create the patch to add the migration complete annotation
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"true"}}}`, esMigrationCompleteAnnotationKey))
+	_, err := o.kube.ZalandoV1().ElasticsearchDataSets(o.namespace).Patch(ctx, eds.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	return err
 }
 
 // Run runs the main loop of the operator.
@@ -851,8 +992,10 @@ func edsReplicas(eds *zv1.ElasticsearchDataSet) *int32 {
 	return &desired
 }
 
-// collectResources collects all the ElasticsearchDataSet resources and there
-// corresponding StatefulSets if they exist.
+/*
+collectResources collects all the ElasticsearchDataSet resources and their corresponding StatefulSets, MetricSets, and Pods.
+This version uses pod labels to efficiently select only the pods belonging to each EDS.
+*/
 func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types.UID]*ESResource, error) {
 	resources := make(map[types.UID]*ESResource)
 
@@ -861,8 +1004,7 @@ func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types
 		return nil, err
 	}
 
-	// create a map of ElasticsearchDataSet clusters to later map the matching
-	// StatefulSet.
+	// create a map of ElasticsearchDataSet clusters to later map the matching StatefulSet.
 	for _, eds := range edss.Items {
 		eds := eds
 		if !o.hasOwnership(&eds) {
@@ -894,21 +1036,15 @@ func (o *ElasticsearchOperator) collectResources(ctx context.Context) (map[types
 		}
 	}
 
-	// TODO: label filter
-	pods, err := o.podInformer.Lister().Pods(o.namespace).List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pod := range pods {
-		pod := *pod
-		for _, es := range resources {
-			es := es
-			// TODO: leaky abstraction
-			if v, ok := pod.Labels[esDataSetLabelKey]; ok && v == es.ElasticsearchDataSet.Name {
-				es.Pods = append(es.Pods, pod)
-				break
-			}
+	// Use label selectors to efficiently fetch pods for each EDS.
+	for _, es := range resources {
+		selector := labels.Set(map[string]string{esDataSetLabelKey: es.ElasticsearchDataSet.Name}).AsSelector()
+		pods, err := o.podInformer.Lister().Pods(o.namespace).List(selector)
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range pods {
+			es.Pods = append(es.Pods, *pod)
 		}
 	}
 
@@ -1038,9 +1174,7 @@ func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string)
 	}
 
 	for key, value := range labels {
-		if _, ok := template.ObjectMeta.Labels[key]; !ok {
-			template.ObjectMeta.Labels[key] = value
-		}
+		template.ObjectMeta.Labels[key] = value
 	}
 	return template
 }

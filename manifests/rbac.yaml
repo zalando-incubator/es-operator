@@ -49,6 +49,7 @@ rules:
   - "apps"
   resources:
   - statefulsets
+  - deployments  # used by e2e tests to restart operator via rollout
   verbs:
   - get
   - list

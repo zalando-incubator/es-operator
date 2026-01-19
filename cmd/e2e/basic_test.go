@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/es-operator/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type TestEDSSpecFactory struct {
@@ -131,5 +135,147 @@ func TestEDSCreateBasic9(t *testing.T) {
 	edsSpec := testEDSCreate(t, edsName, "9.1.5", "es9-config")
 	verifyEDS(t, edsName, edsSpec, edsSpec.Replicas)
 	err := deleteEDS(edsName)
+	require.NoError(t, err)
+}
+
+func TestPodLabelMigration(t *testing.T) {
+	t.Parallel()
+	edsName := "e2e-migrate"
+	version := "8.6.2"
+	configMap := "es8-config"
+
+	// Create EDS first
+	testEDSCreate(t, edsName, version, configMap)
+
+	// Wait for pods to be created and ready
+	require.Eventually(t, func() bool {
+		pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "es-operator-dataset=" + edsName,
+		})
+		if err != nil {
+			return false
+		}
+		return len(pods.Items) > 0
+	}, 60*time.Second, 2*time.Second, "pods for EDS not created with labels")
+
+	// Get the initial pods
+	pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "es-operator-dataset=" + edsName,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, pods.Items, "No pods found with the expected label")
+
+	// Verify the label is initially present on all pods (this tests template injection)
+	for _, pod := range pods.Items {
+		labelValue, exists := pod.Labels["es-operator-dataset"]
+		assert.True(t, exists, "Pod %s missing es-operator-dataset label", pod.Name)
+		assert.Equal(t, edsName, labelValue, "Pod %s has incorrect label value", pod.Name)
+	}
+
+	// Test the migration path by simulating a pre-migration scenario
+	t.Logf("Testing migration path: removing labels from %d pods", len(pods.Items))
+	var unlabeledPods []string
+
+	// Remove labels from all pods to simulate pre-migration state
+	for _, pod := range pods.Items {
+		patch := []byte(`{"metadata":{"labels":{"es-operator-dataset":null}}}`)
+		_, err := kubernetesClient.CoreV1().Pods(namespace).Patch(
+			context.Background(),
+			pod.Name,
+			types.StrategicMergePatchType,
+			patch,
+			metav1.PatchOptions{},
+		)
+		require.NoError(t, err, "Failed to remove label from pod %s", pod.Name)
+		unlabeledPods = append(unlabeledPods, pod.Name)
+	}
+
+	// Verify labels were removed
+	require.Eventually(t, func() bool {
+		for _, podName := range unlabeledPods {
+			pod, err := kubernetesClient.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if _, exists := pod.Labels["es-operator-dataset"]; exists {
+				return false
+			}
+		}
+		return true
+	}, 30*time.Second, 2*time.Second, "Labels were not removed from pods")
+
+	// Remove migration completion annotation to force re-migration
+	eds, err := edsInterface().Get(context.Background(), edsName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	migrationAnnotationKey := "es-operator.zalando.org/pod-label-migration-complete"
+	if eds.Annotations != nil && eds.Annotations[migrationAnnotationKey] != "" {
+		patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}}}`, migrationAnnotationKey))
+		_, err := edsInterface().Patch(
+			context.Background(),
+			edsName,
+			types.StrategicMergePatchType,
+			patch,
+			metav1.PatchOptions{},
+		)
+		require.NoError(t, err, "Failed to remove migration annotation from EDS")
+		t.Logf("Removed migration annotation to trigger fresh migration")
+	}
+
+	// Restart the operator to trigger migration logic (which runs during startup)
+	// This is more realistic than creating a temporary EDS
+	t.Logf("Restarting operator to trigger pod label migration during startup")
+	err = restartOperator(t)
+	require.NoError(t, err, "Failed to restart operator")
+
+	// Verify that the operator actually performed the migration by checking that labels were restored
+	t.Logf("Verifying that operator migration restored labels automatically")
+
+	// Verify all pods have labels restored by the operator migration
+	require.Eventually(t, func() bool {
+		pods, err := kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "es-operator-dataset=" + edsName,
+		})
+		if err != nil {
+			t.Logf("Failed to list pods with label selector: %v", err)
+			return false
+		}
+		t.Logf("Found %d pods with restored labels (expected %d)", len(pods.Items), len(unlabeledPods))
+		return len(pods.Items) == len(unlabeledPods)
+	}, 60*time.Second, 2*time.Second, "Not all pods have labels restored by operator migration")
+
+	// Verify migration annotation was added by the operator
+	require.Eventually(t, func() bool {
+		eds, err := edsInterface().Get(context.Background(), edsName, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("Failed to get EDS: %v", err)
+			return false
+		}
+		if eds.Annotations == nil {
+			t.Logf("EDS has no annotations yet")
+			return false
+		}
+		annotationValue := eds.Annotations[migrationAnnotationKey]
+		t.Logf("Migration annotation value: %s", annotationValue)
+		return annotationValue == "true"
+	}, 60*time.Second, 2*time.Second, "Migration annotation was not set by operator")
+
+	// Final verification - ensure all pods have the correct label
+	pods, err = kubernetesClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "es-operator-dataset=" + edsName,
+	})
+	require.NoError(t, err)
+	require.Equal(t, len(unlabeledPods), len(pods.Items), "Mismatch in number of labeled pods")
+
+	for _, pod := range pods.Items {
+		labelValue, exists := pod.Labels["es-operator-dataset"]
+		assert.True(t, exists, "Pod %s missing es-operator-dataset label after migration", pod.Name)
+		assert.Equal(t, edsName, labelValue, "Pod %s has incorrect label value after migration", pod.Name)
+	}
+
+	t.Logf("Migration test completed successfully - operator automatically restored labels and set annotation")
+
+	// Cleanup
+	err = deleteEDS(edsName)
 	require.NoError(t, err)
 }

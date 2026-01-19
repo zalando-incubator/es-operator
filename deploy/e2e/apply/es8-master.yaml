@@ -25,10 +25,10 @@ spec:
         resources:
           requests:
             memory: 1120Mi
-            cpu: 100m
+            cpu: 50m
           limits:
             memory: 1120Mi
-            cpu: 100m
+            cpu: 2000m
         image: "docker.elastic.co/elasticsearch/elasticsearch:8.19.5"
         env:
         - name: "node.name"
@@ -36,7 +36,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: "ES_JAVA_OPTS"
-          value: "-Xms560m -Xmx560m"
+          value: "-XX:MaxDirectMemorySize=10M -XX:MaxMetaspaceSize=155273K -XX:ReservedCodeCacheSize=240M -Xss1M -Xms684406K -Xmx684406K -XX:ActiveProcessorCount=2 -XX:+UseCompactObjectHeaders -Xlog:gc"
         - name: node.roles
           value: "master,data"
         readinessProbe:

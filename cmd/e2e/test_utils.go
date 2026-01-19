@@ -45,18 +45,18 @@ var (
 						},
 					},
 					Env: []v1.EnvVar{
-						{Name: "ES_JAVA_OPTS", Value: "-Xms356m -Xmx356m"},
+						{Name: "ES_JAVA_OPTS", Value: "-XX:MaxDirectMemorySize=10M -XX:MaxMetaspaceSize=155273K -XX:ReservedCodeCacheSize=240M -Xss1M -Xms684406K -Xmx684406K -XX:ActiveProcessorCount=2 -Xlog:gc"},
 						{Name: "node.roles", Value: "data"},
 						{Name: "node.attr.group", Value: nodeGroup},
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("1Gi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("1120Mi"),
+							v1.ResourceCPU:    resource.MustParse("2000m"),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("1Gi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("1120Mi"),
+							v1.ResourceCPU:    resource.MustParse("50m"),
 						},
 					},
 					ReadinessProbe: &v1.Probe{
@@ -314,4 +314,71 @@ func pint64(i int64) *int64 {
 
 func pint32(i int32) *int32 {
 	return &i
+}
+
+// restartOperator restarts the es-operator deployment using rollout restart
+// This triggers the migration logic that runs during operator startup
+func restartOperator(t *testing.T) error {
+	// Find the operator deployment
+	deployment, err := kubernetesClient.AppsV1().Deployments(namespace).Get(
+		context.Background(),
+		"es-operator",
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get operator deployment: %v", err)
+	}
+
+	// Trigger a deployment rollout restart by adding/updating a restart annotation
+	// This is the equivalent of `kubectl rollout restart deployment/es-operator`
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = fmt.Sprintf("%d", time.Now().Unix())
+
+	t.Logf("Triggering rollout restart of deployment %s", deployment.Name)
+	_, err = kubernetesClient.AppsV1().Deployments(namespace).Update(
+		context.Background(),
+		deployment,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update deployment for restart: %v", err)
+	}
+
+	// Wait for the deployment to recreate pods and become ready
+	t.Logf("Waiting for operator deployment to become ready after restart")
+	err = newAwaiter(t, "operator deployment restart").
+		withTimeout(2 * time.Minute).
+		withPoll(func() (bool, error) {
+			// Check if deployment is ready
+			currentDeployment, err := kubernetesClient.AppsV1().Deployments(namespace).Get(
+				context.Background(),
+				"es-operator",
+				metav1.GetOptions{},
+			)
+			if err != nil {
+				return true, fmt.Errorf("failed to get deployment status: %v", err)
+			}
+
+			if currentDeployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+				t.Logf("Operator deployment is ready with %d/%d replicas",
+					currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+				return false, nil
+			}
+
+			t.Logf("Operator deployment not ready yet: %d/%d replicas ready",
+				currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+			return true, fmt.Errorf("deployment not ready: %d/%d replicas",
+				currentDeployment.Status.ReadyReplicas, *deployment.Spec.Replicas)
+		}).await()
+
+	if err != nil {
+		return fmt.Errorf("operator failed to restart: %v", err)
+	}
+
+	// Give the operator a moment to start processing after becoming ready
+	t.Logf("Operator restarted successfully, waiting for migration processing")
+	time.Sleep(10 * time.Second)
+	return nil
 }
