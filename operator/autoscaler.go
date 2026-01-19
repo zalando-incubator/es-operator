@@ -247,13 +247,27 @@ func (as *AutoScaler) getMaxDiskUsage(managedNodes []ESNode) float64 {
 
 func (as *AutoScaler) ensureBoundsNodeReplicas(newDesiredNodeReplicas int32) int32 {
 	scalingSpec := as.eds.Spec.Scaling
+
+	// Enforce absolute minimum of 1 replica to prevent scale-to-zero
+	if newDesiredNodeReplicas < 1 {
+		as.logger.Warnf("EDS %s/%s: Requested to scale to %d, enforcing minimum of 1 replica.", as.eds.Namespace, as.eds.Name, newDesiredNodeReplicas)
+		return 1
+	}
+
 	if scalingSpec.MaxReplicas > 0 && scalingSpec.MaxReplicas < newDesiredNodeReplicas {
 		as.logger.Warnf("Requested to scale up to %d, which is beyond the defined maxReplicas of %d.", newDesiredNodeReplicas, scalingSpec.MaxReplicas)
 		return scalingSpec.MaxReplicas
 	}
-	if scalingSpec.MinReplicas > 0 && scalingSpec.MinReplicas > newDesiredNodeReplicas {
-		return scalingSpec.MinReplicas
+
+	// Enforce minReplicas with absolute floor of 1
+	effectiveMinReplicas := scalingSpec.MinReplicas
+	if effectiveMinReplicas < 1 {
+		effectiveMinReplicas = 1
 	}
+	if effectiveMinReplicas > newDesiredNodeReplicas {
+		return effectiveMinReplicas
+	}
+
 	return newDesiredNodeReplicas
 }
 
