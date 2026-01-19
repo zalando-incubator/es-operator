@@ -937,8 +937,6 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 
 	// second, calculate a new EDS scaling operation
 	scaling := eds.Spec.Scaling
-	name := eds.Name
-	namespace := eds.Namespace
 
 	currentReplicasPtr := edsReplicas(eds)
 
@@ -970,51 +968,59 @@ func (o *ElasticsearchOperator) scaleEDS(ctx context.Context, eds *zv1.Elasticse
 
 	currentReplicas := *currentReplicasPtr
 	eds.Spec.Replicas = currentReplicasPtr
-	as := NewAutoScaler(es, o.metricsInterval, client)
 
 	if scaling != nil && scaling.Enabled {
-		scalingOperation, err := as.GetScalingOperation()
-		if err != nil {
-			return err
-		}
-
-		// update EDS definition.
-		if scalingOperation.NodeReplicas != nil && *scalingOperation.NodeReplicas != currentReplicas {
-			now := metav1.Now()
-			if *scalingOperation.NodeReplicas > currentReplicas {
-				eds.Status.LastScaleUpStarted = &now
-			} else {
-				eds.Status.LastScaleDownStarted = &now
-			}
-			log.Infof("Updating last scaling event in EDS '%s/%s'", namespace, name)
-
-			// update status
-			eds, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).UpdateStatus(ctx, eds, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-			eds.Spec.Replicas = scalingOperation.NodeReplicas
-		}
-
-		// TODO: move to a function
-		jsonBytes, err := json.Marshal(scalingOperation)
-		if err != nil {
-			return err
-		}
-
-		if scalingOperation.ScalingDirection != NONE {
-			eds.Annotations[esScalingOperationKey] = string(jsonBytes)
-
-			// persist changes of EDS
-			log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
-			_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(ctx, eds, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
+		return o.updateScalingOperation(ctx, eds, es, client, currentReplicas)
 	}
 
+	return nil
+}
+
+func (o *ElasticsearchOperator) updateScalingOperation(ctx context.Context, eds *zv1.ElasticsearchDataSet, es *ESResource, client *ESClient, currentReplicas int32) error {
+	as := NewAutoScaler(es, o.metricsInterval, client)
+
+	scalingOperation, err := as.GetScalingOperation()
+	if err != nil {
+		return err
+	}
+
+	name := eds.Name
+	namespace := eds.Namespace
+
+	// update EDS definition.
+	if scalingOperation.NodeReplicas != nil && *scalingOperation.NodeReplicas != currentReplicas {
+		now := metav1.Now()
+		if *scalingOperation.NodeReplicas > currentReplicas {
+			eds.Status.LastScaleUpStarted = &now
+		} else {
+			eds.Status.LastScaleDownStarted = &now
+		}
+		log.Infof("Updating last scaling event in EDS '%s/%s'", namespace, name)
+
+		// update status
+		eds, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).UpdateStatus(ctx, eds, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		eds.Spec.Replicas = scalingOperation.NodeReplicas
+	}
+
+	// TODO: move to a function
+	jsonBytes, err := json.Marshal(scalingOperation)
+	if err != nil {
+		return err
+	}
+
+	if scalingOperation.ScalingDirection != NONE {
+		eds.Annotations[esScalingOperationKey] = string(jsonBytes)
+
+		// persist changes of EDS
+		log.Infof("Updating desired scaling for EDS '%s/%s'. New desired replicas: %d. %s", namespace, name, *eds.Spec.Replicas, scalingOperation.Description)
+		_, err = o.kube.ZalandoV1().ElasticsearchDataSets(eds.Namespace).Update(ctx, eds, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
