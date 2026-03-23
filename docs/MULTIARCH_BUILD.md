@@ -41,7 +41,7 @@ The workflow automatically creates the following tags:
    docker buildx create --use
    ```
 
-2. **Go**: Version 1.25 or later
+2. **Go**: Version 1.26 or later
    ```bash
    go version
    ```
