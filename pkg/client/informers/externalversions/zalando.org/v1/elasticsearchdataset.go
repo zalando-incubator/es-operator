@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The Kubernetes Authors.
+Copyright 2026 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ func NewElasticsearchDataSetInformer(client versioned.Interface, namespace strin
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredElasticsearchDataSetInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredElasticsearchDataSetInformer(client versioned.Interface, namespa
 				}
 				return client.ZalandoV1().ElasticsearchDataSets(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apiszalandoorgv1.ElasticsearchDataSet{},
 		resyncPeriod,
 		indexers,
