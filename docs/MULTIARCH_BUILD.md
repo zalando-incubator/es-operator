@@ -15,8 +15,7 @@ The repository includes a GitHub Actions workflow (`.github/workflows/docker-mul
 1. **Builds multiarch binaries** for both amd64 and arm64
 2. **Creates and pushes Docker images** to `ghcr.io/<owner>/<repo>`
 3. **Handles authentication** using the built-in `GITHUB_TOKEN`
-4. **Scans images for vulnerabilities** using Trivy
-5. **Supports multiple triggers**:
+4. **Supports multiple triggers**:
    - Push to `master`/`main` branch
    - Git tags (releases)
    - Pull requests (build only, no push)
@@ -121,7 +120,6 @@ gh auth token | docker login ghcr.io -u <username> --password-stdin
 ## Security
 
 The workflow includes:
-- **Vulnerability scanning** with Trivy
 - **Minimal permissions** using GitHub's built-in tokens
 - **SARIF upload** for security findings in GitHub Security tab
 - **Cache optimization** for faster builds

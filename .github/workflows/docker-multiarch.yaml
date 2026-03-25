@@ -100,15 +100,3 @@ jobs:
           echo "image-ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
           echo "Using image reference: ${IMAGE_REF}"
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.image-ref.outputs.image-ref }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
