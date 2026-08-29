@@ -372,7 +372,7 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg
 	// mark Pod draining
 	err = o.annotatePod(ctx, pod, operatorPodDrainingAnnotationKey, "true")
 	if err != nil {
-		return fmt.Errorf("failed to mark Pod %s/%s draining: %v", pod.Namespace, pod.Name, err)
+		return fmt.Errorf("failed to mark Pod %s/%s as draining: %v", pod.Namespace, pod.Name, err)
 	}
 
 	// drain Pod
@@ -380,6 +380,11 @@ func (o *Operator) operatePods(ctx context.Context, sts *appsv1.StatefulSet, srg
 		pod.Name))
 	err = sr.Drain(ctx, pod)
 	if err != nil {
+		annotationErr := o.annotatePod(ctx, pod, operatorPodDrainingAnnotationKey, "false")
+		if annotationErr != nil {
+			return fmt.Errorf("failed to undo marking Pod %s/%s as draining: %v. Original error during draining: %v",
+				pod.Namespace, pod.Name, annotationErr, err)
+		}
 		return fmt.Errorf("failed to drain Pod %s/%s: %v", pod.Namespace, pod.Name, err)
 	}
 	o.recorder.Event(sr.Self(), v1.EventTypeNormal, "DrainedPod", fmt.Sprintf("Successfully drained Pod '%s/%s'",
